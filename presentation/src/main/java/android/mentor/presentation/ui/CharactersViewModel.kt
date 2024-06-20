@@ -16,13 +16,15 @@ class CharactersViewModel @Inject constructor(
     private val repo: CharactersRepository,
 ): ViewModel() {
 
-    private val _characters: MutableLiveData<List<ContentEntity.CharacterEntity>> = MutableLiveData()
-    val characters: LiveData<List<ContentEntity.CharacterEntity>> = _characters
+    val characters = repo.getContent()
 
-    fun requestCharacters() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val content = repo.getContent()
-            _characters.postValue(content.results)
-        }
+    private var page: Int = 1
+
+    fun onPageFinished() = viewModelScope.launch(Dispatchers.IO) {
+        repo.loadPage(++page)
+    }
+
+    fun loadFirstPage() = viewModelScope.launch(Dispatchers.IO) {
+        repo.loadPage(1)
     }
 }

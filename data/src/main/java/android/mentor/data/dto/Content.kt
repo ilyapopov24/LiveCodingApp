@@ -4,7 +4,7 @@ data class Content(
     val info: Info,
     val results: List<Character>,
 ) {
-    data class Info(val count: Int)
+    data class Info(val count: Int?)
 
-    data class Character(val name: String)
+    data class Character(val name: String, val image: String)
 }
