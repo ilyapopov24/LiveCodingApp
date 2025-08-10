@@ -10,6 +10,7 @@ import android.mentor.presentation.databinding.ItemChatMessageBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.view.View
 
 class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDiffCallback()) {
 
@@ -43,11 +44,23 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
                     constraintLayoutMessage.setBackgroundResource(android.R.color.holo_blue_light)
                     textMessage.setTextColor(itemView.context.getColor(android.R.color.white))
                     textTime.setTextColor(itemView.context.getColor(android.R.color.white))
+                    
+                    // Выравниваем сообщение пользователя справа
+                    val params = constraintLayoutMessage.layoutParams as ViewGroup.MarginLayoutParams
+                    params.marginStart = 120 // 120dp в пикселях
+                    params.marginEnd = 0
+                    constraintLayoutMessage.layoutParams = params
                 } else {
                     // Сообщение бота - слева
                     constraintLayoutMessage.setBackgroundResource(android.R.color.darker_gray)
                     textMessage.setTextColor(itemView.context.getColor(android.R.color.black))
                     textTime.setTextColor(itemView.context.getColor(android.R.color.darker_gray))
+                    
+                    // Выравниваем сообщение бота слева
+                    val params = constraintLayoutMessage.layoutParams as ViewGroup.MarginLayoutParams
+                    params.marginStart = 0
+                    params.marginEnd = 120 // 120dp в пикселях
+                    constraintLayoutMessage.layoutParams = params
                 }
             }
         }
