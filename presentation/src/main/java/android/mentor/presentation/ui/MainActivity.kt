@@ -4,13 +4,13 @@ import android.mentor.presentation.R
 import android.mentor.presentation.databinding.ActivityMainBinding
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.recyclerview.widget.RecyclerView
-import by.kirich1409.viewbindingdelegate.viewBinding
+import androidx.fragment.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
+import by.kirich1409.viewbindingdelegate.viewBinding
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -27,8 +27,33 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        setupNavigation()
+        
+        // По умолчанию показываем экран персонажей
+        if (savedInstanceState == null) {
+            loadFragment(CharactersListFragment())
+        }
+    }
+
+    private fun setupNavigation() {
+        vb.bottomNavigationView.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_characters -> {
+                    loadFragment(CharactersListFragment())
+                    true
+                }
+                R.id.navigation_chat -> {
+                    loadFragment(ChatFragment())
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun loadFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
-            .replace(R.id.mainContainer, CharactersListFragment())
+            .replace(R.id.mainContainer, fragment)
             .commit()
     }
 }

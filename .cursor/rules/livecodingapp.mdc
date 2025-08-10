@@ -1,0 +1,221 @@
+# LiveCodingApp - Project Intelligence & Rules
+
+## Project Overview
+LiveCodingApp is an Android application demonstrating clean architecture principles while providing a functional Rick and Morty character browser. This document captures key patterns, preferences, and project intelligence discovered during development.
+
+## Architecture Patterns
+
+### Clean Architecture Implementation
+- **Strict Layer Separation**: Domain → Data → Presentation
+- **Domain Layer**: Pure Kotlin entities and repository interfaces
+- **Data Layer**: API, database, and repository implementations
+- **Presentation Layer**: UI components and ViewModels
+- **Dependency Direction**: Outer layers depend on inner layers only
+
+### Module Organization
+```
+app/           # Main application, DI setup
+data/          # API, database, repository implementations
+domain/        # Entities, repository interfaces, use cases
+presentation/  # UI components, ViewModels, adapters
+lib/           # Shared utilities and common code
+```
+
+## Code Style & Conventions
+
+### Kotlin-First Approach
+- **100% Kotlin**: No Java code in the project
+- **Data Classes**: Use for all entity and DTO classes
+- **Extension Functions**: Prefer over utility classes
+- **Null Safety**: Leverage Kotlin's type system
+- **Coroutines**: Use for all asynchronous operations
+
+### Naming Conventions
+- **Classes**: PascalCase (e.g., `CharactersViewModel`)
+- **Functions**: camelCase (e.g., `loadPage`)
+- **Variables**: camelCase (e.g., `characterList`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `BASE_URL`)
+- **Packages**: lowercase (e.g., `android.mentor.livecodingapp`)
+
+### File Organization
+- **One Class Per File**: Each class in its own file
+- **Package Structure**: Follow Android conventions
+- **Related Classes**: Group in same package
+- **Test Files**: Mirror main package structure
+
+## Dependency Injection (Hilt)
+
+### Module Organization
+- **NetworkModule**: Retrofit and API setup
+- **RoomModule**: Database and DAO setup
+- **RepoModule**: Repository implementations
+- **MappersModule**: Data transformation classes
+
+### Injection Patterns
+- **Singleton Components**: Network and database instances
+- **Repository Injection**: Interface-based injection
+- **ViewModel Injection**: Use `@HiltViewModel` annotation
+- **Activity Injection**: Use `@AndroidEntryPoint` annotation
+
+## Data Management Patterns
+
+### Repository Pattern
+- **Interface Definition**: In domain layer
+- **Implementation**: In data layer
+- **Single Source of Truth**: Repository manages all data sources
+- **Offline-First**: Local database as primary data source
+
+### Data Flow
+```
+API Response → DTO → Mapper → Entity → Repository → ViewModel → LiveData → UI
+```
+
+### Caching Strategy
+- **Write-Through**: Cache immediately after API response
+- **Read-From-Cache**: UI always reads from local database
+- **Background Sync**: Repository manages data freshness
+
+## UI Patterns
+
+### MVVM Implementation
+- **ViewModel**: Business logic and state management
+- **LiveData**: Observable data holder
+- **Data Binding**: ViewBinding for efficient UI updates
+- **Fragment-Based**: Single activity with fragment navigation
+
+### RecyclerView Usage
+- **Adapter Pattern**: Separate adapter classes
+- **ViewHolder Pattern**: Efficient view recycling
+- **Data Binding**: Use ViewBinding in adapters
+- **Pagination**: Load more data on scroll end
+
+## Network Patterns
+
+### Retrofit Configuration
+- **Base URL**: https://rickandmortyapi.com/
+- **GSON Converter**: JSON serialization/deserialization
+- **Suspend Functions**: Use for all API calls
+- **Error Handling**: Implement proper error states
+
+### API Design
+- **RESTful**: Follow REST principles
+- **Pagination**: Page-based data loading
+- **Query Parameters**: Use for filtering and pagination
+- **Response Wrapping**: Consistent response structure
+
+## Database Patterns (Room)
+
+### Entity Design
+- **Primary Keys**: Use appropriate primary key strategy
+- **Table Names**: Explicit table naming
+- **Column Types**: Use appropriate SQLite types
+- **Indexing**: Add indexes for frequently queried columns
+
+### DAO Pattern
+- **CRUD Operations**: Create, Read, Update, Delete
+- **Query Methods**: Use descriptive method names
+- **Suspend Functions**: Use for database operations
+- **Transaction Support**: Use for complex operations
+
+## Testing Strategy
+
+### Unit Testing
+- **Repository Testing**: Mock API and database
+- **ViewModel Testing**: Test business logic
+- **Mapper Testing**: Validate data transformations
+- **Use Case Testing**: Test business rules
+
+### Test Dependencies
+- **JUnit**: Core testing framework
+- **Mockito**: Mocking framework
+- **Coroutines Test**: Test coroutine-based code
+- **Room Testing**: In-memory database for tests
+
+## Performance Considerations
+
+### Memory Management
+- **Pagination**: Prevent memory overflow
+- **Image Loading**: Efficient image caching
+- **Database Queries**: Optimize query performance
+- **RecyclerView**: Efficient view recycling
+
+### Background Processing
+- **Coroutines**: Use appropriate dispatchers
+- **IO Operations**: Network and database on IO dispatcher
+- **UI Updates**: Always on Main dispatcher
+- **Lifecycle Awareness**: Respect component lifecycles
+
+## Error Handling
+
+### Current Implementation
+- **Basic Error Handling**: Minimal error state management
+- **Silent Failures**: Errors don't propagate to UI
+- **No Retry Logic**: Failed requests aren't retried
+
+### Future Improvements Needed
+- **Error States**: Loading, success, error, empty states
+- **User Feedback**: Clear error messages and retry options
+- **Retry Mechanisms**: Automatic and manual retry
+- **Offline Indicators**: Clear offline status communication
+
+## Development Workflow
+
+### Code Organization
+- **Feature-Based**: Organize by feature rather than layer
+- **Consistent Structure**: Same pattern across all features
+- **Clear Dependencies**: Explicit module dependencies
+- **Separation of Concerns**: Each class has single responsibility
+
+### Version Control
+- **Feature Branches**: Create branches for new features
+- **Clean Commits**: Atomic commits with clear messages
+- **Code Review**: Review all changes before merging
+- **Documentation**: Update docs with code changes
+
+## Common Patterns & Utilities
+
+### Extension Functions
+- **View Extensions**: Common view operations
+- **String Extensions**: String formatting and validation
+- **Date Extensions**: Date/time operations
+- **Collection Extensions**: Collection utilities
+
+### Utility Classes
+- **Constants**: App-wide constants
+- **Helpers**: Common helper functions
+- **Validators**: Input validation utilities
+- **Formatters**: Data formatting utilities
+
+## Future Considerations
+
+### Scalability
+- **Feature Modules**: Consider feature-based modules
+- **Plugin Architecture**: Support for feature plugins
+- **Multi-Module Testing**: Comprehensive testing strategy
+- **Performance Monitoring**: Add performance tracking
+
+### User Experience
+- **Accessibility**: Improve accessibility features
+- **Internationalization**: Add localization support
+- **Analytics**: User behavior tracking
+- **Crash Reporting**: Error monitoring and reporting
+
+## Project-Specific Rules
+
+### Rick and Morty API
+- **Rate Limiting**: Respect API rate limits
+- **Data Consistency**: Ensure data consistency across app
+- **Image Handling**: Efficient image loading and caching
+- **Character Data**: Handle missing or incomplete character data
+
+### Android-Specific
+- **API Level**: Support appropriate Android versions
+- **Device Compatibility**: Test on various device sizes
+- **Performance**: Maintain 60fps scrolling
+- **Battery Life**: Minimize battery impact
+
+This document serves as a living guide for the LiveCodingApp project, capturing important patterns and decisions that help maintain code quality and consistency across the development team.
+description:
+globs:
+alwaysApply: false
+---

@@ -1,0 +1,51 @@
+# Build folders
+**/build/
+build/
+app/build/
+data/build/
+domain/build/
+lib/build/
+presentation/build/
+
+# Gradle
+.gradle/
+gradle/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# From root .gitignore
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# From module .gitignore files
+app/build/
+lib/build/
+data/build/
+domain/build/
+presentation/build/
