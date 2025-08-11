@@ -12,6 +12,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import android.mentor.presentation.databinding.FragmentChatBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.mentor.domain.entities.ChatMessage
+import org.json.JSONObject
 
 @AndroidEntryPoint
 class ChatFragment : Fragment() {
@@ -39,7 +44,11 @@ class ChatFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        chatAdapter = ChatAdapter()
+        chatAdapter = ChatAdapter().apply {
+            setOnItemLongClickListener { message ->
+                handleLongClick(message)
+            }
+        }
         binding.recyclerViewChat.apply {
             adapter = chatAdapter
             layoutManager = LinearLayoutManager(context).apply {
@@ -78,6 +87,36 @@ class ChatFragment : Fragment() {
         binding.buttonClear.setOnClickListener {
             viewModel.clearChatHistory()
             Toast.makeText(context, "История чата очищена", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun handleLongClick(message: ChatMessage) {
+        if (!message.isUser && message.content.contains("✅ JSON ответ получен:")) {
+            // Извлекаем JSON из сообщения
+            val jsonStart = message.content.indexOf("{")
+            if (jsonStart != -1) {
+                try {
+                    val jsonPart = message.content.substring(jsonStart)
+                    val jsonObject = JSONObject(jsonPart)
+                    val formattedJson = jsonObject.toString(2)
+                    
+                    // Копируем в буфер обмена
+                    val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("JSON Response", formattedJson)
+                    clipboard.setPrimaryClip(clip)
+                    
+                    Toast.makeText(context, "JSON скопирован в буфер обмена", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Ошибка при копировании JSON", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else if (!message.isUser) {
+            // Копируем обычное сообщение бота
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Bot Response", message.content)
+            clipboard.setPrimaryClip(clip)
+            
+            Toast.makeText(context, "Ответ скопирован в буфер обмена", Toast.LENGTH_SHORT).show()
         }
     }
 

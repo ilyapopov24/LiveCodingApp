@@ -14,3 +14,10 @@ data class Choice(
 data class Usage(
     val total_tokens: Int
 )
+
+// Простая структура для отображения JSON ответов
+data class JsonDisplayData(
+    val title: String,
+    val content: Map<String, Any>,
+    val rawJson: String
+)

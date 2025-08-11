@@ -11,8 +11,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.view.View
+import android.text.SpannableString
+import android.text.Spannable
+import android.text.style.ForegroundColorSpan
+import android.graphics.Color
+import org.json.JSONObject
+import org.json.JSONException
 
 class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDiffCallback()) {
+
+    private var onItemLongClickListener: ((ChatMessage) -> Unit)? = null
+
+    fun setOnItemLongClickListener(listener: (ChatMessage) -> Unit) {
+        onItemLongClickListener = listener
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val binding = ItemChatMessageBinding.inflate(
@@ -20,22 +32,25 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
             parent,
             false
         )
-        return ChatViewHolder(binding)
+        return ChatViewHolder(binding, onItemLongClickListener)
     }
 
-    override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: ChatViewHolder, position: Int): Unit {
         holder.bind(getItem(position))
     }
 
     class ChatViewHolder(
-        private val binding: ItemChatMessageBinding
+        private val binding: ItemChatMessageBinding,
+        private val onItemLongClickListener: ((ChatMessage) -> Unit)?
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
         fun bind(message: ChatMessage) {
             binding.apply {
-                textMessage.text = message.content
+                // Форматируем сообщение с подсветкой JSON
+                val formattedContent = formatMessageContent(message.content)
+                textMessage.text = formattedContent
                 textTime.text = timeFormat.format(Date(message.timestamp))
                 
                 // Настраиваем внешний вид в зависимости от типа сообщения
@@ -62,7 +77,56 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
                     params.marginEnd = 120 // 120dp в пикселях
                     constraintLayoutMessage.layoutParams = params
                 }
+                
+                // Добавляем обработчик длительного нажатия
+                constraintLayoutMessage.setOnLongClickListener {
+                    onItemLongClickListener?.invoke(message)
+                    true
+                }
             }
+        }
+        
+        private fun formatMessageContent(content: String): SpannableString {
+            val spannableString = SpannableString(content)
+            
+            // Если это JSON ответ, добавляем подсветку
+            if (content.contains("✅ JSON ответ получен:")) {
+                try {
+                    // Извлекаем JSON часть
+                    val jsonStart = content.indexOf("{")
+                    if (jsonStart != -1) {
+                        val jsonPart = content.substring(jsonStart)
+                        val jsonObject = JSONObject(jsonPart)
+                        
+                        // Форматируем JSON для лучшей читаемости
+                        val formattedJson = jsonObject.toString(2) // 2 пробела для отступов
+                        
+                        // Создаем новый текст с форматированным JSON
+                        val newContent = content.substring(0, jsonStart) + "\n\n" + formattedJson
+                        val newSpannable = SpannableString(newContent)
+                        
+                        // Подсвечиваем ключи JSON
+                        val keyPattern = "\"([^\"]+)\":".toRegex()
+                        keyPattern.findAll(formattedJson).forEach { matchResult ->
+                            val start = newContent.indexOf(matchResult.value, jsonStart)
+                            if (start != -1) {
+                                newSpannable.setSpan(
+                                    ForegroundColorSpan(Color.parseColor("#1976D2")), // Синий цвет для ключей
+                                    start,
+                                    start + matchResult.value.length,
+                                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                                )
+                            }
+                        }
+                        
+                        return newSpannable
+                    }
+                } catch (e: JSONException) {
+                    // Если JSON невалидный, оставляем как есть
+                }
+            }
+            
+            return spannableString
         }
     }
 
