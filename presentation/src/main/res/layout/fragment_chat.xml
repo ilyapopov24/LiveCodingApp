@@ -17,7 +17,7 @@
         app:layout_constraintBottom_toTopOf="@+id/constraintLayoutInput"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dialogProgressLayout"
         tools:listitem="@layout/item_chat_message" />
 
     <ProgressBar
@@ -29,6 +29,42 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Startup Dialog Progress Layout -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/dialogProgressLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="#E3F2FD"
+        android:padding="12dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/textViewDialogProgress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Startup Dialog: Step 1/6"
+            android:textColor="#1976D2"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@+id/buttonCancelDialog"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/buttonCancelDialog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"
+            android:textSize="12sp"
+            android:backgroundTint="#F44336"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayoutInput"

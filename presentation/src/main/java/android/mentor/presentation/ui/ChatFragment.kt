@@ -73,6 +73,12 @@ class ChatFragment : Fragment() {
                 binding.buttonSend.isEnabled = !isLoading
             }
         }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.startupDialogState.collect { dialogState ->
+                updateDialogUI(dialogState)
+            }
+        }
     }
 
     private fun setupClickListeners() {
@@ -87,6 +93,11 @@ class ChatFragment : Fragment() {
         binding.buttonClear.setOnClickListener {
             viewModel.clearChatHistory()
             Toast.makeText(context, "История чата очищена", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.buttonCancelDialog.setOnClickListener {
+            viewModel.cancelStartupDialog()
+            Toast.makeText(context, "Диалог о стартапе отменен", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -123,5 +134,25 @@ class ChatFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun updateDialogUI(dialogState: android.mentor.domain.entities.StartupDialogState) {
+        if (dialogState.isActive) {
+            binding.dialogProgressLayout.visibility = View.VISIBLE
+            val topicName = when (dialogState.currentTopic) {
+                "idea" -> "Idea & Problem"
+                "target_audience" -> "Target Audience"
+                "resources" -> "Resources"
+                "experience" -> "Experience"
+                "competitors" -> "Competitors"
+                "motivation" -> "Motivation & Goals"
+                else -> "Startup Planning"
+            }
+            binding.textViewDialogProgress.text = "Startup Dialog: $topicName (Step ${dialogState.currentStep + 1})"
+            binding.buttonCancelDialog.visibility = View.VISIBLE
+        } else {
+            binding.dialogProgressLayout.visibility = View.GONE
+            binding.buttonCancelDialog.visibility = View.GONE
+        }
     }
 }

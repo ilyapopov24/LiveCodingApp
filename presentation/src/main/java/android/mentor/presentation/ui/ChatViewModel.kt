@@ -3,6 +3,7 @@ package android.mentor.presentation.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.mentor.domain.entities.ChatMessage
+import android.mentor.domain.entities.StartupDialogState
 import android.mentor.domain.usecases.SendChatMessageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,9 @@ class ChatViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _startupDialogState = MutableStateFlow(StartupDialogState())
+    val startupDialogState: StateFlow<StartupDialogState> = _startupDialogState.asStateFlow()
 
     fun sendMessage(message: String) {
         if (message.isBlank()) return
@@ -49,5 +53,18 @@ class ChatViewModel @Inject constructor(
 
     fun clearChatHistory() {
         _chatMessages.value = emptyList()
+    }
+
+    fun cancelStartupDialog() {
+        _startupDialogState.value = StartupDialogState()
+        // Добавляем сообщение о прерывании диалога
+        val cancelMessage = ChatMessage(
+            id = System.currentTimeMillis().toString(),
+            content = "❌ Startup dialog cancelled. You can ask any other question.",
+            isUser = false,
+            timestamp = System.currentTimeMillis(),
+            model = "system"
+        )
+        _chatMessages.value = _chatMessages.value + cancelMessage
     }
 }
