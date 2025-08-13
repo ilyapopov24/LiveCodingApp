@@ -23,8 +23,14 @@ class ChatViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isGeneratingRecommendations = MutableStateFlow(false)
+    val isGeneratingRecommendations: StateFlow<Boolean> = _isGeneratingRecommendations.asStateFlow()
+
     private val _startupDialogState = MutableStateFlow(StartupDialogState())
     val startupDialogState: StateFlow<StartupDialogState> = _startupDialogState.asStateFlow()
+
+    private val _hasRecommendations = MutableStateFlow(false)
+    val hasRecommendations: StateFlow<Boolean> = _hasRecommendations.asStateFlow()
 
     fun sendMessage(message: String) {
         if (message.isBlank()) return

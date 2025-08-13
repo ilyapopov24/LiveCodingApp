@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
 You are an AI assistant integrated into a Kotlin-based Android application.
 Your primary role is to provide helpful, polite, and concise responses to user queries in natural language, while avoiding unnecessary repetition.
 You must follow these architectural constraints:

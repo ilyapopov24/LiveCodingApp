@@ -10,4 +10,6 @@
 local.properties
 *.env
 gradle.properties
+gradle.properties.template
 *.backup
+.idea/misc.xml

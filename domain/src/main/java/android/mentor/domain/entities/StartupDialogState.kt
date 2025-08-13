@@ -6,7 +6,10 @@ data class StartupDialogState(
     val collectedAnswers: Map<String, String> = emptyMap(),
     val originalQuestion: String = "",
     val currentTopic: String = "",
-    val answerHistory: List<AnswerAnalysis> = emptyList()
+    val answerHistory: List<AnswerAnalysis> = emptyList(),
+    val startupRecommendations: List<StartupRecommendation> = emptyList(),
+    val hasRecommendations: Boolean = false,
+    val clarificationAttempts: Int = 0
 )
 
 data class AnswerAnalysis(

@@ -17,9 +17,11 @@ data class AnswerAnalysisRequest(
                 role = "system",
                 content = """You are a startup expert conducting a dialogue. Analyze the user's answer and decide:
 
-1. Is the answer complete and relevant to the current topic?
-2. What should be the next question?
-3. Should we clarify the current topic or move to the next?
+IMPORTANT RULES:
+- NEVER move to the next topic until you get a COMPLETE and RELEVANT answer
+- If the answer is irrelevant, unclear, or incomplete, ask for clarification
+- Only move to next topic when current topic is fully covered
+- Be strict about answer quality - don't accept vague or off-topic responses
 
 Current topic: $currentTopic
 User's answer: $userAnswer
@@ -32,11 +34,13 @@ Provide response in JSON format:
     "is_complete": boolean,
     "relevance_score": 1-10,
     "missing_info": "what's missing",
-    "next_action": "next_question" | "clarify" | "move_on" | "complete"
+    "next_action": "clarify" | "move_on" | "complete"
   },
   "next_question": "the actual question to ask",
   "topic_key": "key for storing this answer"
-}"""
+}
+
+Remember: Only move to next topic if relevance_score >= 7 and is_complete = true"""
             )
             
             val userMessageDto = ChatMessageDto(
