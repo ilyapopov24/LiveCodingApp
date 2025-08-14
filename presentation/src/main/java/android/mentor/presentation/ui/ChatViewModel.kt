@@ -48,7 +48,15 @@ class ChatViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val response = sendChatMessageUseCase(message)
-                _chatMessages.value = _chatMessages.value + response
+                
+                // Проверяем, нужно ли очистить чат
+                if (response.shouldClearChat) {
+                    // Очищаем чат и добавляем только сообщение от второго агента
+                    _chatMessages.value = listOf(response)
+                } else {
+                    // Добавляем сообщение к существующему чату
+                    _chatMessages.value = _chatMessages.value + response
+                }
             } catch (e: Exception) {
                 // Ошибка уже обрабатывается в репозитории
             } finally {

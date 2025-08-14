@@ -391,8 +391,8 @@ class ChatRepositoryImpl @Inject constructor(
         }
 
         if (isValidJson) {
-            val jsonData = JsonResponseParser.parseResponse(responseContent)
-            val formattedContent = formatJsonResponse(jsonData)
+            // Анализ от первого агента готов, но не возвращаем его
+            // Вместо этого сразу переходим ко второму агенту
             
             // Теперь вызываем второго агента для генерации рекомендаций
             Log.d("ChatRepository", "About to call second agent for recommendations...")
@@ -405,19 +405,20 @@ class ChatRepositoryImpl @Inject constructor(
                 null
             }
             
-            val finalContent = if (recommendationsMessage != null) {
-                "$formattedContent\n\n${recommendationsMessage.content}"
+            // Возвращаем сообщение с рекомендациями (или ошибкой)
+            return if (recommendationsMessage != null) {
+                // Второй агент должен очистить чат и начать с чистого листа
+                recommendationsMessage.copy(shouldClearChat = true)
             } else {
-                "$formattedContent\n\n⚠️ Failed to generate startup recommendations. This may be due to timeout or API limitations. You can try again later."
+                ChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    content = "⚠️ Failed to generate startup recommendations. This may be due to timeout or API limitations. You can try again later.",
+                    isUser = false,
+                    timestamp = System.currentTimeMillis(),
+                    model = "startup-expert",
+                    shouldClearChat = true
+                )
             }
-            
-            return ChatMessage(
-                id = UUID.randomUUID().toString(),
-                content = "🚀 Startup Analysis Complete!\n\n$finalContent",
-                isUser = false,
-                timestamp = System.currentTimeMillis(),
-                model = "startup-expert"
-            )
         } else {
             return ChatMessage(
                 id = UUID.randomUUID().toString(),

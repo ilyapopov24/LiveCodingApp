@@ -5,5 +5,6 @@ data class ChatMessage(
     val content: String,
     val isUser: Boolean,
     val timestamp: Long,
-    val model: String? = null
+    val model: String? = null,
+    val shouldClearChat: Boolean = false
 )
