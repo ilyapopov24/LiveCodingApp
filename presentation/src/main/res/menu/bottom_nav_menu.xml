@@ -9,4 +9,9 @@
         android:id="@+id/navigation_chat"
         android:icon="@android:drawable/ic_menu_edit"
         android:title="Чат" />
+        
+    <item
+        android:id="@+id/navigation_mcp_chat"
+        android:icon="@android:drawable/ic_menu_share"
+        android:title="MCP GitHub" />
 </menu>

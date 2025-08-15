@@ -46,6 +46,10 @@ class MainActivity : AppCompatActivity() {
                     loadFragment(ChatFragment())
                     true
                 }
+                R.id.navigation_mcp_chat -> {
+                    loadFragment(MCPChatFragment())
+                    true
+                }
                 else -> false
             }
         }

@@ -1,45 +1,36 @@
-# Changelog
+# CHANGELOG
 
-All notable changes to this project will be documented in this file.
-
-## [Unreleased] - 2024-12-19
+## [Unreleased]
 
 ### Added
-- **Startup Recommendations Feature**: Added second AI agent that generates 10 startup recommendations based on user's startup information
-- New DTO classes: `StartupRecommendationsRequest` and `StartupRecommendationsResponse`
-- New domain entity: `StartupRecommendation`
-- New mapper: `StartupRecommendationsMapper` for converting DTO to domain entities
-- Enhanced `StartupDialogState` to include startup recommendations
-- New API method in `ChatApi` for getting startup recommendations
+- MCP (Model Context Protocol) интеграция для подключения к GitHub API через готовый MCP сервер
+- **Правильная архитектура согласно схеме**: Пользователь → LLM (Gemini) → AI Client → MCP Server → GitHub API
+- **НЕТ прямого взаимодействия пользователя с MCP сервером** - используется Gemini как посредник
+- Новая вкладка "MCP GitHub" в bottom navigation
+- MCPChatFragment для отображения MCP чата
+- MCPChatViewModel для управления MCP состоянием
+- MCPRepository для координации работы Gemini и MCP
+- GeminiApi для обработки естественного языка пользователя
+- MCPApi для WebSocket соединения с MCP сервером
+- MCPChatAdapter для отображения MCP сообщений
+- Поддержка Google AI SDK для Gemini
+- WebSocket соединение для real-time MCP коммуникации
 
 ### Changed
-- Modified `ChatRepositoryImpl.generateStartupSummary()` to automatically call second agent after first analysis
-- Updated `ChatViewModel` to track recommendation state
-- Enhanced startup dialog flow to include recommendation generation
-- Fixed timeout issues by configuring OkHttp client with proper timeouts (60 seconds for read operations)
-- Added progress tracking for recommendation generation
-- Enhanced error messages with timeout information
-- Improved first agent's answer validation logic - now requires complete and relevant answers before moving to next topic
-- Enhanced clarification questions with better formatting and context
-- Added strict quality control for user answers (relevance_score >= 7 required)
-- Fixed second agent's response formatting with dedicated formatter for startup recommendations
-- Added clarification attempt limit (3 attempts per topic) to prevent infinite questioning loops
-- Enhanced user experience with attempt counter display and warnings
+- Обновлен AppModule для включения MCP модуля
+- Расширен bottom navigation для поддержки трех вкладок
+- **Исправлена архитектура**: Gemini обрабатывает естественный язык, создает структурированные запросы для MCP
 
 ### Technical Details
-- Second agent uses specialized system prompt for generating startup recommendations
-- Recommendations are generated in specific JSON format with 10 startup ideas
-- Each recommendation includes: id, title, problem, solution, target customer, value proposition, business model, KPIs, revenue forecast, status, and next actions
-- Error handling for recommendation generation with fallback to first agent results only
-- Maintains existing startup dialog functionality while adding new recommendation layer
-- Enhanced logging for debugging recommendation generation issues
-- Simplified system prompt to avoid potential API issues
-- Increased max_tokens to 4000 to prevent JSON truncation
-- Added JSON repair logic for handling truncated responses
-- Optimized prompt length to maximize available tokens for response generation
+- Добавлены зависимости: Google AI SDK, Java-WebSocket
+- Создан MCP модуль для dependency injection
+- Реализован MCP протокол для GitHub операций
+- Добавлена поддержка JSON-RPC 2.0 для MCP сообщений
+- **Gemini API обрабатывает естественный язык и создает JSON schema для MCP**
 
-### Architecture
-- Follows existing MVVM pattern
-- Maintains clean architecture principles
-- Uses existing dependency injection setup
-- Preserves backward compatibility with current chat functionality
+## [Previous Versions]
+- Базовое приложение с Rick and Morty персонажами
+- Chat функциональность с OpenAI API
+- Clean Architecture с MVVM паттерном
+- Hilt dependency injection
+- Room database для кэширования

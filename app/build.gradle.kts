@@ -75,6 +75,12 @@ dependencies {
     kapt ("androidx.room:room-compiler:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
 
+    // Google AI SDK для Gemini
+    implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
+
+    // WebSocket для MCP соединения
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+
     implementation(project(":domain"))
     implementation(project(":presentation"))
     implementation(project(":data"))

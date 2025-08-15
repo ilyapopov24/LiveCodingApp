@@ -16,6 +16,8 @@ android {
         consumerProguardFiles("consumer-rules.pro")
         
         buildConfigField("String", "GPT_API_KEY", "\"${project.findProperty("GPT_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${project.findProperty("GEMINI_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GITHUB_TOKEN", "\"${project.findProperty("GITHUB_TOKEN") ?: ""}\"")
     }
 
     buildTypes {
@@ -72,4 +74,10 @@ dependencies {
     annotationProcessor ("androidx.room:room-compiler:$room_version")
     kapt ("androidx.room:room-compiler:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
+    
+    // Google AI SDK для Gemini
+    implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
+    
+    // WebSocket для MCP соединения
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
 }
