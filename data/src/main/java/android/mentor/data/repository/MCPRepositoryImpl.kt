@@ -5,6 +5,20 @@ import android.mentor.data.api.GeminiApi
 import android.mentor.data.api.GitHubApi
 import android.mentor.data.api.CreateRepositoryRequest
 import android.mentor.domain.entities.MCPChatMessage
+import android.mentor.domain.entities.GitHubReport
+import android.mentor.domain.entities.GitHubProfileSummary
+import android.mentor.domain.entities.GitHubProfileAnalysis
+import android.mentor.domain.entities.RepositoryAnalysis
+import android.mentor.domain.entities.RepositoryStructure
+import android.mentor.domain.entities.CommitStatistics
+import android.mentor.domain.entities.ReportSummary
+import android.mentor.domain.entities.DetailedAnalysis
+import android.mentor.domain.entities.RepositoryBreakdown
+import android.mentor.domain.entities.TechnologyBreakdown
+import android.mentor.domain.entities.ActivityBreakdown
+import android.mentor.domain.entities.QualityMetrics
+import android.mentor.domain.entities.TechnologyStack
+import android.mentor.domain.entities.ActivityStatistics
 import android.mentor.domain.repository.MCPRepository
 import android.util.Log
 import kotlinx.coroutines.flow.StateFlow
@@ -204,6 +218,63 @@ class MCPRepositoryImpl @Inject constructor(
                         "❌ Ошибка поиска: ${e.message}"
                     }
                 }
+                "analyze_profile" -> {
+                    Log.d(TAG, "Analyzing GitHub profile...")
+                    try {
+                        val profileAnalysis = analyzeGitHubProfile(githubToken)
+                        profileAnalysis
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error analyzing profile: ${e.message}")
+                        "❌ Ошибка анализа профиля: ${e.message}"
+                    }
+                }
+                "analyze_repository" -> {
+                    val repoName = request.parameters["name"] ?: 
+                                  request.parameters["repository_name"] ?: 
+                                  request.parameters["repo_name"] ?: ""
+                    if (repoName.isEmpty()) {
+                        return "❌ Не указано название репозитория"
+                    }
+                    
+                    Log.d(TAG, "Analyzing repository: $repoName")
+                    try {
+                        val repoAnalysis = analyzeRepository(githubToken, repoName)
+                        repoAnalysis
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error analyzing repository: ${e.message}")
+                        "❌ Ошибка анализа репозитория: ${e.message}"
+                    }
+                }
+                "generate_report" -> {
+                    Log.d(TAG, "Generating comprehensive GitHub report...")
+                    try {
+                        val report = generateComprehensiveReport(githubToken)
+                        report
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error generating report: ${e.message}")
+                        "❌ Ошибка генерации отчета: ${e.message}"
+                    }
+                }
+                "get_technology_stack" -> {
+                    Log.d(TAG, "Analyzing technology stack...")
+                    try {
+                        val techStack = analyzeTechnologyStack(githubToken)
+                        techStack
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error analyzing technology stack: ${e.message}")
+                        "❌ Ошибка анализа технологического стека: ${e.message}"
+                    }
+                }
+                "get_activity_stats" -> {
+                    Log.d(TAG, "Analyzing activity statistics...")
+                    try {
+                        val activityStats = analyzeActivityStatistics(githubToken)
+                        activityStats
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error analyzing activity: ${e.message}")
+                        "❌ Ошибка анализа активности: ${e.message}"
+                    }
+                }
                 else -> {
                     Log.w(TAG, "Unknown operation: ${request.operation}")
                     "❓ Неизвестная операция: ${request.operation}"
@@ -277,6 +348,523 @@ class MCPRepositoryImpl @Inject constructor(
 
     override fun isGeminiInitialized(): Boolean {
         return geminiApi.isInitialized()
+    }
+
+    // Новые аналитические методы
+    override suspend fun generateGitHubReport(): GitHubReport? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return null
+            }
+            
+            // Получаем профиль пользователя
+            val profile = githubApi.getUserProfile("token $githubToken")
+            
+            // Получаем все репозитории
+            val repositories = githubApi.getAllUserRepositories("token $githubToken")
+            
+            // Анализируем каждый репозиторий
+            val repositoryAnalyses = repositories.take(10).map { repo ->
+                analyzeRepositoryEntity(githubToken, repo)
+            }
+            
+            // Создаем отчет
+            GitHubReport(
+                generatedAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()),
+                profileAnalysis = createFullProfileAnalysis(profile, repositoryAnalyses),
+                summary = createReportSummary(repositories, repositoryAnalyses),
+                detailedAnalysis = createDetailedAnalysis(repositories, repositoryAnalyses)
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating GitHub report: ${e.message}")
+            null
+        }
+    }
+    
+    override suspend fun analyzeGitHubProfile(): String? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return "⚠️ GitHub токен не настроен"
+            }
+            
+            analyzeGitHubProfile(githubToken)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error analyzing GitHub profile: ${e.message}")
+            "❌ Ошибка анализа профиля: ${e.message}"
+        }
+    }
+    
+    override suspend fun analyzeRepository(repositoryName: String): String? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return "⚠️ GitHub токен не настроен"
+            }
+            
+            analyzeRepository(githubToken, repositoryName)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error analyzing repository: ${e.message}")
+            "❌ Ошибка анализа репозитория: ${e.message}"
+        }
+    }
+    
+    override suspend fun getRepositoryStructure(repositoryName: String): String? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return "⚠️ GitHub токен не настроен"
+            }
+            
+            val profile = githubApi.getUserProfile("token $githubToken")
+            val contents = githubApi.getRepositoryContents(
+                "token $githubToken",
+                profile.login,
+                repositoryName
+            )
+            
+            buildString {
+                appendLine("📁 Структура репозитория '$repositoryName':")
+                appendLine()
+                contents.forEach { content ->
+                    val icon = if (content.type == "dir") "📁" else "📄"
+                    appendLine("$icon ${content.path}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting repository structure: ${e.message}")
+            "❌ Ошибка получения структуры репозитория: ${e.message}"
+        }
+    }
+    
+    override suspend fun getTechnologyStack(): String? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return "⚠️ GitHub токен не настроен"
+            }
+            
+            analyzeTechnologyStack(githubToken)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting technology stack: ${e.message}")
+            "❌ Ошибка получения технологического стека: ${e.message}"
+        }
+    }
+    
+    override suspend fun getActivityStatistics(): String? {
+        return try {
+            val githubToken = BuildConfig.GITHUB_TOKEN
+            if (githubToken.isEmpty() || githubToken == "YOUR_GITHUB_TOKEN_HERE") {
+                return "⚠️ GitHub токен не настроен"
+            }
+            
+            analyzeActivityStatistics(githubToken)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting activity statistics: ${e.message}")
+            "❌ Ошибка получения статистики активности: ${e.message}"
+        }
+    }
+    
+    // Приватные вспомогательные методы
+    private suspend fun analyzeGitHubProfile(githubToken: String): String {
+        val profile = githubApi.getUserProfile("token $githubToken")
+        val repositories = githubApi.getAllUserRepositories("token $githubToken")
+        
+        val totalStars = repositories.sumOf { it.stargazers_count }
+        val totalForks = repositories.sumOf { it.forks_count }
+        
+        return buildString {
+            appendLine("👤 **Анализ GitHub профиля: ${profile.name ?: profile.login}**")
+            appendLine()
+            appendLine("📊 **Основная статистика:**")
+            appendLine("• Репозитории: ${profile.public_repos}")
+            appendLine("• Подписчики: ${profile.followers}")
+            appendLine("• Подписки: ${profile.following}")
+            appendLine("• Gists: ${profile.public_gists}")
+            appendLine("• Участник с: ${profile.created_at.substring(0, 10)}")
+            appendLine()
+            appendLine("⭐ **Активность:**")
+            appendLine("• Всего звезд: $totalStars")
+            appendLine("• Всего форков: $totalForks")
+            appendLine("• Последнее обновление: ${repositories.firstOrNull()?.updated_at?.substring(0, 10) ?: "N/A"}")
+            appendLine()
+            if (profile.bio != null) {
+                appendLine("📝 **О себе:** ${profile.bio}")
+                appendLine()
+            }
+            if (profile.company != null) {
+                appendLine("🏢 **Компания:** ${profile.company}")
+                appendLine()
+            }
+            if (profile.location != null) {
+                appendLine("📍 **Местоположение:** ${profile.location}")
+            }
+        }
+    }
+    
+    private suspend fun analyzeRepository(githubToken: String, repositoryName: String): String {
+        val profile = githubApi.getUserProfile("token $githubToken")
+        val repoDetails = githubApi.getRepositoryDetails("token $githubToken", profile.login, repositoryName)
+        val languages = githubApi.getRepositoryLanguages("token $githubToken", profile.login, repositoryName)
+        val contents = githubApi.getRepositoryContents("token $githubToken", profile.login, repositoryName)
+        val commits = githubApi.getRepositoryCommits("token $githubToken", profile.login, repositoryName)
+        
+        val readmeContent = contents.find { it.name.lowercase().contains("readme") }
+        val totalFiles = contents.size
+        val directories = contents.filter { it.type == "dir" }.map { it.name }
+        
+        return buildString {
+            appendLine("📚 **Анализ репозитория: $repositoryName**")
+            appendLine()
+            appendLine("📊 **Основная информация:**")
+            appendLine("• Описание: ${repoDetails.description ?: "без описания"}")
+            appendLine("• Размер: ${repoDetails.size} KB")
+            appendLine("• Основной язык: ${repoDetails.language ?: "не определен"}")
+            appendLine("• Приватный: ${if (repoDetails.private) "Да" else "Нет"}")
+            appendLine("• Создан: ${repoDetails.created_at.substring(0, 10)}")
+            appendLine("• Обновлен: ${repoDetails.updated_at.substring(0, 10)}")
+            appendLine()
+            appendLine("⭐ **Статистика:**")
+            appendLine("• Звезды: ${repoDetails.stargazers_count}")
+            appendLine("• Форки: ${repoDetails.forks_count}")
+            appendLine("• Наблюдатели: ${repoDetails.watchers_count}")
+            appendLine("• Открытые issues: ${repoDetails.open_issues_count}")
+            appendLine()
+            appendLine("🔧 **Технологии:**")
+            if (languages.isNotEmpty()) {
+                languages.entries.sortedByDescending { it.value }.take(5).forEach { (lang, bytes) ->
+                    val percentage = (bytes.toDouble() / languages.values.sum()) * 100
+                    appendLine("• $lang: ${String.format("%.1f", percentage)}%")
+                }
+            } else {
+                appendLine("• Языки не определены")
+            }
+            appendLine()
+            appendLine("📁 **Структура:**")
+            appendLine("• Всего файлов: $totalFiles")
+            appendLine("• Папки: ${directories.joinToString(", ") { it }}")
+            appendLine()
+            appendLine("📝 **README:**")
+            if (readmeContent != null) {
+                val preview = readmeContent.content?.take(200) ?: "Содержимое недоступно"
+                appendLine("${preview}...")
+            } else {
+                appendLine("README файл не найден")
+            }
+            appendLine()
+            appendLine("🔄 **Активность:**")
+            appendLine("• Последний коммит: ${commits.firstOrNull()?.commit?.author?.date?.substring(0, 10) ?: "N/A"}")
+            appendLine("• Всего коммитов: ${commits.size}")
+        }
+    }
+    
+    private suspend fun generateComprehensiveReport(githubToken: String): String {
+        val profile = githubApi.getUserProfile("token $githubToken")
+        val repositories = githubApi.getAllUserRepositories("token $githubToken")
+        
+        val totalStars = repositories.sumOf { it.stargazers_count }
+        val totalForks = repositories.sumOf { it.forks_count }
+        val languages = mutableMapOf<String, Int>()
+        
+        // Анализируем языки программирования
+        repositories.take(10).forEach { repo ->
+            try {
+                val repoLanguages = githubApi.getRepositoryLanguages("token $githubToken", profile.login, repo.name)
+                repoLanguages.forEach { (lang, bytes) ->
+                    languages[lang] = languages.getOrDefault(lang, 0) + bytes
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not get languages for repo ${repo.name}: ${e.message}")
+            }
+        }
+        
+        val topLanguages = languages.entries.sortedByDescending { it.value }.take(5)
+        val totalBytes = languages.values.sum()
+        
+        return buildString {
+            appendLine("📊 **ПОЛНЫЙ ОТЧЕТ ПО GITHUB ПРОФИЛЮ**")
+            appendLine("=".repeat(50))
+            appendLine()
+            appendLine("👤 **ПРОФИЛЬ:**")
+            appendLine("• Имя: ${profile.name ?: profile.login}")
+            appendLine("• Логин: ${profile.login}")
+            appendLine("• Био: ${profile.bio ?: "не указано"}")
+            appendLine("• Компания: ${profile.company ?: "не указано"}")
+            appendLine("• Местоположение: ${profile.location ?: "не указано"}")
+            appendLine("• Участник с: ${profile.created_at.substring(0, 10)}")
+            appendLine()
+            appendLine("📈 **ОБЩАЯ СТАТИСТИКА:**")
+            appendLine("• Публичных репозиториев: ${profile.public_repos}")
+            appendLine("• Gists: ${profile.public_gists}")
+            appendLine("• Подписчики: ${profile.followers}")
+            appendLine("• Подписки: ${profile.following}")
+            appendLine("• Всего звезд: $totalStars")
+            appendLine("• Всего форков: $totalForks")
+            appendLine()
+            appendLine("🔧 **ТЕХНОЛОГИЧЕСКИЙ СТЕК:**")
+            if (topLanguages.isNotEmpty()) {
+                appendLine("Топ языков программирования:")
+                topLanguages.forEach { (lang, bytes) ->
+                    val percentage = (bytes.toDouble() / totalBytes) * 100
+                    appendLine("  • $lang: ${String.format("%.1f", percentage)}%")
+                }
+            } else {
+                appendLine("Языки программирования не определены")
+            }
+            appendLine()
+            appendLine("📚 **РЕПОЗИТОРИИ (топ 10):**")
+            repositories.take(10).forEachIndexed { index, repo ->
+                appendLine("${index + 1}. ${repo.name}")
+                appendLine("   • ${repo.description ?: "без описания"}")
+                appendLine("   • ⭐ ${repo.stargazers_count} | 🔀 ${repo.forks_count}")
+                appendLine("   • Основной язык: ${repo.language ?: "не определен"}")
+                appendLine("   • Обновлен: ${repo.updated_at.substring(0, 10)}")
+                appendLine()
+            }
+            appendLine("=".repeat(50))
+            appendLine("📅 Отчет сгенерирован: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
+        }
+    }
+    
+    private suspend fun analyzeTechnologyStack(githubToken: String): String {
+        val profile = githubApi.getUserProfile("token $githubToken")
+        val repositories = githubApi.getAllUserRepositories("token $githubToken")
+        
+        val languages = mutableMapOf<String, Int>()
+        val frameworks = mutableSetOf<String>()
+        val databases = mutableSetOf<String>()
+        val tools = mutableSetOf<String>()
+        
+        // Анализируем каждый репозиторий
+        repositories.take(15).forEach { repo ->
+            try {
+                val repoLanguages = githubApi.getRepositoryLanguages("token $githubToken", profile.login, repo.name)
+                repoLanguages.forEach { (lang, bytes) ->
+                    languages[lang] = languages.getOrDefault(lang, 0) + bytes
+                }
+                
+                // Анализируем название и описание репозитория для определения технологий
+                val repoText = "${repo.name} ${repo.description ?: ""}".lowercase()
+                
+                // Определяем фреймворки
+                if (repoText.contains("spring")) frameworks.add("Spring Framework")
+                if (repoText.contains("react")) frameworks.add("React")
+                if (repoText.contains("vue")) frameworks.add("Vue.js")
+                if (repoText.contains("angular")) frameworks.add("Angular")
+                if (repoText.contains("flutter")) frameworks.add("Flutter")
+                if (repoText.contains("kotlin")) frameworks.add("Kotlin")
+                if (repoText.contains("android")) frameworks.add("Android")
+                
+                // Определяем базы данных
+                if (repoText.contains("mysql")) databases.add("MySQL")
+                if (repoText.contains("postgresql")) databases.add("PostgreSQL")
+                if (repoText.contains("mongodb")) databases.add("MongoDB")
+                if (repoText.contains("redis")) databases.add("Redis")
+                if (repoText.contains("sqlite")) databases.add("SQLite")
+                
+                // Определяем инструменты
+                if (repoText.contains("docker")) tools.add("Docker")
+                if (repoText.contains("kubernetes")) tools.add("Kubernetes")
+                if (repoText.contains("jenkins")) tools.add("Jenkins")
+                if (repoText.contains("git")) tools.add("Git")
+                if (repoText.contains("gradle")) tools.add("Gradle")
+                if (repoText.contains("maven")) tools.add("Maven")
+                
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not analyze repo ${repo.name}: ${e.message}")
+            }
+        }
+        
+        val topLanguages = languages.entries.sortedByDescending { it.value }.take(8)
+        val totalBytes = languages.values.sum()
+        
+        return buildString {
+            appendLine("🔧 **АНАЛИЗ ТЕХНОЛОГИЧЕСКОГО СТЕКА**")
+            appendLine("=".repeat(40))
+            appendLine()
+            appendLine("💻 **ЯЗЫКИ ПРОГРАММИРОВАНИЯ:**")
+            if (topLanguages.isNotEmpty()) {
+                topLanguages.forEach { (lang, bytes) ->
+                    val percentage = (bytes.toDouble() / totalBytes) * 100
+                    appendLine("• $lang: ${String.format("%.1f", percentage)}% (${bytes} bytes)")
+                }
+            } else {
+                appendLine("Языки не определены")
+            }
+            appendLine()
+            appendLine("⚡ **ФРЕЙМВОРКИ:**")
+            if (frameworks.isNotEmpty()) {
+                frameworks.forEach { framework ->
+                    appendLine("• $framework")
+                }
+            } else {
+                appendLine("Фреймворки не определены")
+            }
+            appendLine()
+            appendLine("🗄️ **БАЗЫ ДАННЫХ:**")
+            if (databases.isNotEmpty()) {
+                databases.forEach { database ->
+                    appendLine("• $database")
+                }
+            } else {
+                appendLine("Базы данных не определены")
+            }
+            appendLine()
+            appendLine("🛠️ **ИНСТРУМЕНТЫ:**")
+            if (tools.isNotEmpty()) {
+                tools.forEach { tool ->
+                    appendLine("• $tool")
+                }
+            } else {
+                appendLine("Инструменты не определены")
+            }
+            appendLine()
+            appendLine("📊 **СТАТИСТИКА:**")
+            appendLine("• Проанализировано репозиториев: ${repositories.take(15).size}")
+            appendLine("• Обнаружено языков: ${languages.size}")
+            appendLine("• Обнаружено фреймворков: ${frameworks.size}")
+            appendLine("• Обнаружено баз данных: ${databases.size}")
+            appendLine("• Обнаружено инструментов: ${tools.size}")
+        }
+    }
+    
+    private suspend fun analyzeActivityStatistics(githubToken: String): String {
+        val profile = githubApi.getUserProfile("token $githubToken")
+        val repositories = githubApi.getAllUserRepositories("token $githubToken")
+        
+        val totalCommits = mutableMapOf<String, Int>()
+        val activityByMonth = mutableMapOf<String, Int>()
+        
+        // Анализируем активность по репозиториям
+        repositories.take(10).forEach { repo ->
+            try {
+                val commits = githubApi.getRepositoryCommits("token $githubToken", profile.login, repo.name)
+                totalCommits[repo.name] = commits.size
+                
+                // Анализируем активность по месяцам
+                commits.forEach { commit ->
+                    val month = commit.commit.author.date.substring(0, 7) // YYYY-MM
+                    activityByMonth[month] = activityByMonth.getOrDefault(month, 0) + 1
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not get commits for repo ${repo.name}: ${e.message}")
+            }
+        }
+        
+        val mostActiveRepo = totalCommits.maxByOrNull { it.value }
+        val sortedMonths = activityByMonth.entries.sortedByDescending { it.value }
+        val totalActivity = totalCommits.values.sum()
+        
+        return buildString {
+            appendLine("📈 **СТАТИСТИКА АКТИВНОСТИ**")
+            appendLine("=".repeat(35))
+            appendLine()
+            appendLine("🔄 **ОБЩАЯ АКТИВНОСТЬ:**")
+            appendLine("• Всего коммитов: $totalActivity")
+            appendLine("• Проанализировано репозиториев: ${totalCommits.size}")
+            appendLine("• Самый активный репозиторий: ${mostActiveRepo?.key ?: "N/A"}")
+            appendLine()
+            appendLine("📅 **АКТИВНОСТЬ ПО МЕСЯЦАМ:**")
+            if (sortedMonths.isNotEmpty()) {
+                sortedMonths.take(6).forEach { (month, commits) ->
+                    appendLine("• $month: $commits коммитов")
+                }
+            } else {
+                appendLine("Данные по месяцам недоступны")
+            }
+            appendLine()
+            appendLine("📊 **АКТИВНОСТЬ ПО РЕПОЗИТОРИЯМ:**")
+            totalCommits.entries.sortedByDescending { it.value }.take(5).forEach { (repo, commits) ->
+                appendLine("• $repo: $commits коммитов")
+            }
+            appendLine()
+            appendLine("💡 **ИНСАЙТЫ:**")
+            if (totalActivity > 0) {
+                val avgCommitsPerRepo = totalActivity.toDouble() / totalCommits.size
+                appendLine("• Среднее количество коммитов на репозиторий: ${String.format("%.1f", avgCommitsPerRepo)}")
+                
+                if (mostActiveRepo != null) {
+                    val percentage = (mostActiveRepo.value.toDouble() / totalActivity) * 100
+                    appendLine("• ${mostActiveRepo.key} составляет ${String.format("%.1f", percentage)}% от общей активности")
+                }
+            }
+        }
+    }
+    
+    // Вспомогательные методы для создания domain entities
+    private suspend fun analyzeRepositoryEntity(githubToken: String, repo: android.mentor.data.api.GitHubRepository): RepositoryAnalysis {
+        // Базовая реализация - можно расширить позже
+        return RepositoryAnalysis(
+            name = repo.name,
+            fullName = repo.full_name,
+            description = repo.description,
+            url = repo.html_url,
+            isPrivate = repo.private,
+            size = 0, // Пока не реализовано
+            primaryLanguage = null,
+            languages = emptyMap(),
+            stars = 0,
+            forks = 0,
+            openIssues = 0,
+            lastUpdated = repo.updated_at,
+            createdAt = repo.created_at,
+            topics = emptyList(),
+            hasWiki = false,
+            hasPages = false,
+            license = null,
+            structure = RepositoryStructure(0, emptyList(), null, emptyList(), emptyList()),
+            commitStats = CommitStatistics(0, "", "", emptyList())
+        )
+    }
+    
+    private fun createProfileAnalysis(profile: android.mentor.data.api.GitHubUserProfile, repositories: List<RepositoryAnalysis>): GitHubProfileSummary {
+        return GitHubProfileSummary(
+            username = profile.login,
+            name = profile.name,
+            bio = profile.bio,
+            company = profile.company,
+            location = profile.location,
+            publicRepos = profile.public_repos,
+            followers = profile.followers,
+            following = profile.following,
+            memberSince = profile.created_at,
+            avatarUrl = profile.avatar_url
+        )
+    }
+    
+    private fun createReportSummary(repositories: List<android.mentor.data.api.GitHubRepository>, repositoryAnalyses: List<RepositoryAnalysis>): ReportSummary {
+        val totalStars = repositories.sumOf { repo -> repo.stargazers_count }
+        val totalForks = repositories.sumOf { repo -> repo.forks_count }
+        
+        return ReportSummary(
+            totalRepositories = repositories.size,
+            totalStars = totalStars,
+            totalForks = totalForks,
+            primaryTechnologies = emptyList(), // Пока не реализовано
+            activityLevel = "Средний", // Пока не реализовано
+            expertiseAreas = emptyList() // Пока не реализовано
+        )
+    }
+    
+    private fun createDetailedAnalysis(repositories: List<android.mentor.data.api.GitHubRepository>, repositoryAnalyses: List<RepositoryAnalysis>): DetailedAnalysis {
+        return DetailedAnalysis(
+            repositoryBreakdown = RepositoryBreakdown(emptyMap(), emptyMap(), emptyMap(), emptyMap()),
+            technologyBreakdown = TechnologyBreakdown(emptyMap(), emptyMap(), emptyMap(), emptyMap()),
+            activityBreakdown = ActivityBreakdown(emptyMap(), emptyMap(), emptyMap(), ""),
+            qualityMetrics = QualityMetrics(0.0, 0.0, 0.0, 0.0, 0.0)
+        )
+    }
+    
+    private fun createFullProfileAnalysis(profile: android.mentor.data.api.GitHubUserProfile, repositoryAnalyses: List<RepositoryAnalysis>): GitHubProfileAnalysis {
+        return GitHubProfileAnalysis(
+            profile = createProfileAnalysis(profile, repositoryAnalyses),
+            repositories = repositoryAnalyses,
+            technologyStack = TechnologyStack(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()),
+            activityStats = ActivityStatistics(0, 0, "", emptyMap(), 0, ""),
+            insights = emptyList(),
+            recommendations = emptyList()
+        )
     }
 
     // Вспомогательный класс для структурированного запроса

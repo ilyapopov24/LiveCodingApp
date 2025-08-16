@@ -1,36 +1,74 @@
 # CHANGELOG
 
-## [Unreleased]
+## [1.0.0] - 2024-12-19
 
 ### Added
+- Rick and Morty API интеграция для отображения персонажей
+- Пагинация для списка персонажей
+- Offline кэширование с Room базой данных
+- Clean Architecture с MVVM паттерном
+- Dependency Injection с Hilt
 - MCP (Model Context Protocol) интеграция для подключения к GitHub API через готовый MCP сервер
 - **Правильная архитектура согласно схеме**: Пользователь → LLM (Gemini) → AI Client → MCP Server → GitHub API
-- **НЕТ прямого взаимодействия пользователя с MCP сервером** - используется Gemini как посредник
 - Новая вкладка "MCP GitHub" в bottom navigation
-- MCPChatFragment для отображения MCP чата
-- MCPChatViewModel для управления MCP состоянием
-- MCPRepository для координации работы Gemini и MCP
-- GeminiApi для обработки естественного языка пользователя
-- MCPApi для WebSocket соединения с MCP сервером
-- MCPChatAdapter для отображения MCP сообщений
-- Поддержка Google AI SDK для Gemini
-- WebSocket соединение для real-time MCP коммуникации
+- Gemini AI интеграция для обработки естественного языка
+- GitHub API интеграция для базовых операций
 
 ### Changed
-- Обновлен AppModule для включения MCP модуля
-- Расширен bottom navigation для поддержки трех вкладок
-- **Исправлена архитектура**: Gemini обрабатывает естественный язык, создает структурированные запросы для MCP
+- Обновлена архитектура приложения для поддержки MCP
+- Реализован MCP протокол для GitHub операций
 
 ### Technical Details
-- Добавлены зависимости: Google AI SDK, Java-WebSocket
-- Создан MCP модуль для dependency injection
-- Реализован MCP протокол для GitHub операций
-- Добавлена поддержка JSON-RPC 2.0 для MCP сообщений
-- **Gemini API обрабатывает естественный язык и создает JSON schema для MCP**
+- Используется WebSocket для MCP соединения
+- JSON-RPC 2.0 протокол
+- Автоматическая инициализация Gemini API
+- Структурированные запросы через Gemini AI
 
-## [Previous Versions]
-- Базовое приложение с Rick and Morty персонажами
-- Chat функциональность с OpenAI API
-- Clean Architecture с MVVM паттерном
-- Hilt dependency injection
-- Room database для кэширования
+## [1.1.0] - 2024-12-19
+
+### Added
+- **Расширенная GitHub аналитика** - полный анализ профиля и репозиториев
+- **Детальный анализ репозиториев** - содержимое, языки программирования, структура файлов
+- **Технологический стек** - автоматическое определение используемых технологий
+- **Статистика активности** - анализ коммитов, активности по времени
+- **Генерация отчетов** - комплексные отчеты по GitHub профилю
+- Новая вкладка "GitHub Analytics" в bottom navigation
+- Расширенный GitHub API с новыми endpoints
+- Domain entities для аналитических данных
+- Use cases для генерации отчетов
+
+### New GitHub Functions
+- `analyze_profile` - полный анализ GitHub профиля
+- `analyze_repository` - детальный анализ конкретного репозитория
+- `generate_report` - создание полного отчета по профилю
+- `get_technology_stack` - анализ технологического стека
+- `get_activity_stats` - статистика активности
+- `get_repository_structure` - структура файлов репозитория
+
+### Enhanced GitHub API
+- `/user` - информация о профиле пользователя
+- `/user/repos` - расширенная информация о репозиториях
+- `/repos/{owner}/{repo}/languages` - языки программирования
+- `/repos/{owner}/{repo}/contents` - содержимое репозитория
+- `/repos/{owner}/{repo}/commits` - история коммитов
+- `/repos/{owner}/{repo}/stats/contributors` - статистика контрибьюторов
+
+### UI Improvements
+- GitHub Analytics Dashboard с карточками статистики
+- Кнопки для различных типов анализа
+- Отображение технологического стека
+- Графики активности и статистики
+- Адаптивный дизайн для аналитических данных
+
+### Technical Improvements
+- Новые data classes для расширенных GitHub данных
+- Аналитические алгоритмы для определения технологий
+- Кэширование аналитических данных
+- Оптимизация API запросов
+- Обработка ошибок и edge cases
+
+### Dependencies
+- Расширенный Retrofit для GitHub API
+- Новые domain entities для аналитики
+- Use cases для бизнес-логики
+- ViewModels для UI состояния

@@ -81,6 +81,11 @@ class GeminiApi {
                 appendLine("- create_repository: создание репозитория")
                 appendLine("- list_repositories: список репозиториев")
                 appendLine("- search_code: поиск репозиториев")
+                appendLine("- analyze_profile: полный анализ GitHub профиля")
+                appendLine("- analyze_repository: детальный анализ конкретного репозитория")
+                appendLine("- generate_report: создание полного отчета по профилю")
+                appendLine("- get_technology_stack: анализ технологического стека")
+                appendLine("- get_activity_stats: статистика активности")
                 appendLine()
                 appendLine("Ответ должен быть в формате JSON:")
                 appendLine("""
@@ -101,6 +106,50 @@ class GeminiApi {
         } catch (e: Exception) {
             Log.e("GeminiApi", "Error processing user message: ${e.message}")
             "Ошибка обработки запроса: ${e.message}"
+        }
+    }
+    
+    suspend fun generateAnalyticsPrompt(operation: String, context: String = ""): String {
+        return try {
+            if (!_isInitialized.value || generativeModel == null) {
+                return "Ошибка: Gemini API не инициализирован."
+            }
+            
+            val prompt = buildString {
+                appendLine("Ты - AI ассистент для анализа GitHub профилей.")
+                appendLine("Операция: $operation")
+                if (context.isNotEmpty()) {
+                    appendLine("Контекст: $context")
+                }
+                appendLine()
+                appendLine("Создай детальный анализ в формате JSON с ключевыми insights:")
+                appendLine("- Технологические навыки")
+                appendLine("- Паттерны активности")
+                appendLine("- Качество кода")
+                appendLine("- Рекомендации по развитию")
+                appendLine()
+                appendLine("Формат ответа:")
+                appendLine("""
+                    {
+                      "analysis_type": "$operation",
+                      "insights": ["insight1", "insight2"],
+                      "recommendations": ["rec1", "rec2"],
+                      "summary": "краткое резюме",
+                      "details": {
+                        "technical_skills": ["skill1", "skill2"],
+                        "activity_patterns": "описание паттернов",
+                        "code_quality": "оценка качества"
+                      }
+                    }
+                """.trimIndent())
+            }
+            
+            val response = generativeModel?.generateContent(prompt)
+            response?.text ?: "Ошибка: не удалось получить ответ от Gemini"
+            
+        } catch (e: Exception) {
+            Log.e("GeminiApi", "Error generating analytics prompt: ${e.message}")
+            "Ошибка генерации аналитического запроса: ${e.message}"
         }
     }
     

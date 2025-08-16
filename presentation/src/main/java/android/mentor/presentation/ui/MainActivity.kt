@@ -50,6 +50,10 @@ class MainActivity : AppCompatActivity() {
                     loadFragment(MCPChatFragment())
                     true
                 }
+                R.id.navigation_github_analytics -> {
+                    loadFragment(GitHubAnalyticsFragment())
+                    true
+                }
                 else -> false
             }
         }
