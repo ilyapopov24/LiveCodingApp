@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import android.mentor.presentation.databinding.FragmentGithubAnalyticsBinding
 import android.mentor.domain.usecases.GenerateGitHubReportUseCase
 import android.mentor.domain.entities.GitHubReport
+import android.mentor.domain.entities.RepositoryAnalysis
 import kotlinx.coroutines.launch
 
 class GitHubAnalyticsFragment : Fragment() {
@@ -20,6 +21,7 @@ class GitHubAnalyticsFragment : Fragment() {
     private val binding get() = _binding!!
     
     private val viewModel: GitHubAnalyticsViewModel by viewModels()
+    private lateinit var repositoriesAdapter: RepositoriesAdapter
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,6 +43,14 @@ class GitHubAnalyticsFragment : Fragment() {
     }
     
     private fun setupUI() {
+        // Инициализация адаптера
+        repositoriesAdapter = RepositoriesAdapter(
+            onRepositoryClick = { repository ->
+                // Обработка клика по репозиторию
+                Toast.makeText(context, "Выбран репозиторий: ${repository.name}", Toast.LENGTH_SHORT).show()
+            }
+        )
+        
         binding.apply {
             btnGenerateReport.setOnClickListener {
                 generateReport()
@@ -60,7 +70,7 @@ class GitHubAnalyticsFragment : Fragment() {
             
             // Настройка RecyclerView для отображения репозиториев
             rvRepositories.layoutManager = LinearLayoutManager(context)
-            // TODO: Добавить адаптер для репозиториев
+            rvRepositories.adapter = repositoriesAdapter
         }
     }
     
@@ -76,6 +86,14 @@ class GitHubAnalyticsFragment : Fragment() {
         viewModel.error.observe(viewLifecycleOwner) { error ->
             error?.let {
                 Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            }
+        }
+        
+        // Наблюдаем за изменениями в списке репозиториев
+        viewModel.repositories.observe(viewLifecycleOwner) { repositories ->
+            repositories?.let { repos ->
+                repositoriesAdapter.updateRepositories(repos)
+                binding.tvRepositoriesCount.text = "📚 Репозитории (${repos.size})"
             }
         }
     }

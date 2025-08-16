@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.mentor.domain.entities.GitHubReport
+import android.mentor.domain.entities.RepositoryAnalysis
 import android.mentor.domain.usecases.GenerateGitHubReportUseCase
 import android.mentor.domain.repository.MCPRepository
 import kotlinx.coroutines.launch
@@ -33,6 +34,9 @@ class GitHubAnalyticsViewModel @Inject constructor(
     private val _activityStats = MutableLiveData<String?>()
     val activityStats: LiveData<String?> = _activityStats
     
+    private val _repositories = MutableLiveData<List<RepositoryAnalysis>?>()
+    val repositories: LiveData<List<RepositoryAnalysis>?> = _repositories
+    
     fun generateReport() {
         viewModelScope.launch {
             try {
@@ -42,6 +46,8 @@ class GitHubAnalyticsViewModel @Inject constructor(
                 val report = generateGitHubReportUseCase()
                 if (report != null) {
                     _report.value = report
+                    // Обновляем список репозиториев
+                    _repositories.value = report.profileAnalysis.repositories
                 } else {
                     _error.value = "Не удалось сгенерировать отчет. Проверьте настройки GitHub токена."
                 }

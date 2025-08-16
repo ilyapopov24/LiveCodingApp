@@ -86,6 +86,9 @@ class GeminiApi {
                 appendLine("- generate_report: создание полного отчета по профилю")
                 appendLine("- get_technology_stack: анализ технологического стека")
                 appendLine("- get_activity_stats: статистика активности")
+                appendLine("- repository_details: детальная информация о конкретном репозитории")
+                appendLine("- search_repositories: поиск репозиториев по ключевым словам")
+                appendLine("- list_all_repositories: список всех репозиториев с деталями")
                 appendLine()
                 appendLine("Ответ должен быть в формате JSON:")
                 appendLine("""

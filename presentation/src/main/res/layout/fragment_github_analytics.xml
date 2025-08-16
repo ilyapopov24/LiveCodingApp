@@ -278,9 +278,10 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tvRepositoriesCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📚 Репозитории"
+                    android:text="📚 Репозитории (0)"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp" />

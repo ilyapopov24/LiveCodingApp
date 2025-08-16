@@ -44,6 +44,9 @@
 - `get_technology_stack` - анализ технологического стека
 - `get_activity_stats` - статистика активности
 - `get_repository_structure` - структура файлов репозитория
+- `list_all_repositories` - детальная информация о всех репозиториях
+- `repository_details` - полная информация о конкретном репозитории
+- `search_repositories` - поиск репозиториев по ключевым словам
 
 ### Enhanced GitHub API
 - `/user` - информация о профиле пользователя
@@ -66,6 +69,8 @@
 - Кэширование аналитических данных
 - Оптимизация API запросов
 - Обработка ошибок и edge cases
+- **Chat Integration**: Все аналитические функции теперь доступны через MCP чат
+- **Enhanced Gemini Prompts**: Обновлены промпты для поддержки новых команд
 
 ### Dependencies
 - Расширенный Retrofit для GitHub API

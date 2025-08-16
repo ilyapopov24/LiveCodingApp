@@ -275,6 +275,182 @@ class MCPRepositoryImpl @Inject constructor(
                         "❌ Ошибка анализа активности: ${e.message}"
                     }
                 }
+                "list_all_repositories" -> {
+                    Log.d(TAG, "Listing all repositories with details...")
+                    try {
+                        val profile = githubApi.getUserProfile("token $githubToken")
+                        val repositories = githubApi.getAllUserRepositories("token $githubToken")
+                        
+                        if (repositories.isEmpty()) {
+                            "📚 У вас пока нет репозиториев"
+                        } else {
+                            buildString {
+                                appendLine("📚 Детальная информация о всех репозиториях (${repositories.size}):")
+                                appendLine("=".repeat(60))
+                                appendLine()
+                                
+                                repositories.forEach { repo ->
+                                    appendLine("🔹 **${repo.name}**")
+                                    appendLine("   📝 ${repo.description ?: "Без описания"}")
+                                    appendLine("   🌐 ${repo.html_url}")
+                                    appendLine("   ⭐ ${repo.stargazers_count} звезд | 🔀 ${repo.forks_count} форков")
+                                    appendLine("   📁 ${repo.language ?: "Не определен"} | 📦 ${repo.size} KB")
+                                    appendLine("   📅 Создан: ${repo.created_at}")
+                                    appendLine("   🔄 Обновлен: ${repo.updated_at}")
+                                    
+                                    if (repo.topics?.isNotEmpty() == true) {
+                                        appendLine("   🏷️ Топики: ${repo.topics.take(5).joinToString(", ")}")
+                                    }
+                                    if (repo.has_wiki) appendLine("   📚 Wiki")
+                                    if (repo.has_pages) appendLine("   🌐 Pages")
+                                    if (repo.license != null) appendLine("   📄 Лицензия: ${repo.license.name}")
+                                    
+                                    appendLine()
+                                    appendLine("-".repeat(40))
+                                    appendLine()
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error listing all repositories: ${e.message}")
+                        "❌ Ошибка получения детальной информации о репозиториях: ${e.message}"
+                    }
+                }
+                "repository_details" -> {
+                    val repoName = request.parameters["name"] ?: 
+                                  request.parameters["repository_name"] ?: 
+                                  request.parameters["repo_name"] ?: ""
+                    if (repoName.isEmpty()) {
+                        return "❌ Не указано название репозитория"
+                    }
+                    
+                    Log.d(TAG, "Getting detailed repository info: $repoName")
+                    try {
+                        val profile = githubApi.getUserProfile("token $githubToken")
+                        val repoDetails = githubApi.getRepositoryDetails("token $githubToken", profile.login, repoName)
+                        
+                        // Получаем дополнительную информацию
+                        val languages = try {
+                            githubApi.getRepositoryLanguages("token $githubToken", profile.login, repoName)
+                        } catch (e: Exception) {
+                            emptyMap<String, Int>()
+                        }
+                        
+                        val contents = try {
+                            githubApi.getRepositoryContents("token $githubToken", profile.login, repoName)
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                        
+                        val commits = try {
+                            githubApi.getRepositoryCommits("token $githubToken", profile.login, repoName)
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                        
+                        buildString {
+                            appendLine("🔍 **Детальная информация о репозитории: ${repoDetails.name}**")
+                            appendLine("=".repeat(60))
+                            appendLine()
+                            appendLine("📝 **Описание:** ${repoDetails.description ?: "Без описания"}")
+                            appendLine("🌐 **URL:** ${repoDetails.html_url}")
+                            appendLine("🔒 **Статус:** ${if (repoDetails.private) "Приватный" else "Публичный"}")
+                            appendLine()
+                            
+                            appendLine("📊 **Статистика:**")
+                            appendLine("   ⭐ Звезды: ${repoDetails.stargazers_count}")
+                            appendLine("   🔀 Форки: ${repoDetails.forks_count}")
+                            appendLine("   📝 Открытые issues: ${repoDetails.open_issues_count}")
+                            appendLine("   📦 Размер: ${repoDetails.size} KB")
+                            appendLine()
+                            
+                            appendLine("🔧 **Технологии:**")
+                            appendLine("   📁 Основной язык: ${repoDetails.language ?: "Не определен"}")
+                            if (languages.isNotEmpty()) {
+                                appendLine("   📊 Языки программирования:")
+                                languages.entries.sortedByDescending { it.value }.forEach { (lang, bytes) ->
+                                    val percentage = (bytes.toDouble() / languages.values.sum()) * 100
+                                    appendLine("      • $lang: ${String.format("%.1f", percentage)}%")
+                                }
+                            }
+                            appendLine()
+                            
+                            appendLine("📁 **Структура:**")
+                            appendLine("   📂 Папки: ${contents.filter { it.type == "dir" }.map { it.name }}")
+                            appendLine("   📄 Основные файлы: ${contents.filter { it.type == "file" && !it.name.lowercase().contains("readme") }.take(5).map { it.name }}")
+                            appendLine("   ⚙️ Конфигурационные файлы: ${contents.filter { 
+                                it.name.lowercase().contains("gradle") || 
+                                it.name.lowercase().contains("build") || 
+                                it.name.lowercase().contains("pom") || 
+                                it.name.lowercase().contains("package") 
+                            }.map { it.name }}")
+                            appendLine()
+                            
+                            appendLine("💾 **Коммиты:**")
+                            appendLine("   📊 Всего коммитов: ${commits.size}")
+                            if (commits.isNotEmpty()) {
+                                appendLine("   🔄 Последний коммит: ${commits.first().commit.author.date}")
+                                appendLine("   👤 Авторы: ${commits.take(5).mapNotNull { it.author?.name }.distinct().joinToString(", ")}")
+                            }
+                            appendLine()
+                            
+                            if (repoDetails.topics?.isNotEmpty() == true) {
+                                appendLine("🏷️ **Топики:** ${repoDetails.topics.joinToString(", ")}")
+                            }
+                            if (repoDetails.license != null) {
+                                appendLine("📄 **Лицензия:** ${repoDetails.license.name}")
+                            }
+                            if (repoDetails.has_wiki) appendLine("📚 **Wiki:** Да")
+                            if (repoDetails.has_pages) appendLine("🌐 **Pages:** Да")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error getting repository details: ${e.message}")
+                        "❌ Ошибка получения детальной информации о репозитории: ${e.message}"
+                    }
+                }
+                "search_repositories" -> {
+                    val query = request.parameters["query"] ?: ""
+                    if (query.isEmpty()) {
+                        return "❌ Не указан поисковый запрос"
+                    }
+                    
+                    Log.d(TAG, "Searching repositories with query: $query")
+                    try {
+                        val response = githubApi.searchRepositories(query)
+                        
+                        if (response.items.isEmpty()) {
+                            "🔍 По запросу '$query' ничего не найдено"
+                        } else {
+                            buildString {
+                                appendLine("🔍 Результаты поиска репозиториев по '$query':")
+                                appendLine("=".repeat(60))
+                                appendLine()
+                                
+                                response.items.take(10).forEach { repo ->
+                                    appendLine("🔹 **${repo.full_name}**")
+                                    appendLine("   📝 ${repo.description ?: "Без описания"}")
+                                    appendLine("   🌐 ${repo.html_url}")
+                                    appendLine("   ⭐ ${repo.stargazers_count} звезд | 🔀 ${repo.forks_count} форков")
+                                    appendLine("   📁 ${repo.language ?: "Не определен"} | 📦 ${repo.size} KB")
+                                    appendLine("   📅 Создан: ${repo.created_at}")
+                                    appendLine("   🔄 Обновлен: ${repo.updated_at}")
+                                    
+                                    if (repo.topics?.isNotEmpty() == true) {
+                                        appendLine("   🏷️ Топики: ${repo.topics.take(3).joinToString(", ")}")
+                                    }
+                                    appendLine()
+                                }
+                                
+                                if (response.items.size > 10) {
+                                    appendLine("... и еще ${response.items.size - 10} результатов")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error searching repositories: ${e.message}")
+                        "❌ Ошибка поиска репозиториев: ${e.message}"
+                    }
+                }
                 else -> {
                     Log.w(TAG, "Unknown operation: ${request.operation}")
                     "❓ Неизвестная операция: ${request.operation}"
@@ -794,28 +970,114 @@ class MCPRepositoryImpl @Inject constructor(
     
     // Вспомогательные методы для создания domain entities
     private suspend fun analyzeRepositoryEntity(githubToken: String, repo: android.mentor.data.api.GitHubRepository): RepositoryAnalysis {
-        // Базовая реализация - можно расширить позже
-        return RepositoryAnalysis(
-            name = repo.name,
-            fullName = repo.full_name,
-            description = repo.description,
-            url = repo.html_url,
-            isPrivate = repo.private,
-            size = 0, // Пока не реализовано
-            primaryLanguage = null,
-            languages = emptyMap(),
-            stars = 0,
-            forks = 0,
-            openIssues = 0,
-            lastUpdated = repo.updated_at,
-            createdAt = repo.created_at,
-            topics = emptyList(),
-            hasWiki = false,
-            hasPages = false,
-            license = null,
-            structure = RepositoryStructure(0, emptyList(), null, emptyList(), emptyList()),
-            commitStats = CommitStatistics(0, "", "", emptyList())
-        )
+        try {
+            // Получаем детальную информацию о репозитории
+            val repoDetails = githubApi.getRepositoryDetails("token $githubToken", repo.owner?.login ?: "unknown", repo.name)
+            
+            // Получаем языки программирования
+            val languages = try {
+                githubApi.getRepositoryLanguages("token $githubToken", repo.owner?.login ?: "unknown", repo.name)
+            } catch (e: Exception) {
+                emptyMap<String, Int>()
+            }
+            
+            // Получаем содержимое репозитория
+            val contents = try {
+                githubApi.getRepositoryContents("token $githubToken", repo.owner?.login ?: "unknown", repo.name)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            
+            // Получаем историю коммитов
+            val commits = try {
+                githubApi.getRepositoryCommits("token $githubToken", repo.owner?.login ?: "unknown", repo.name)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            
+            // Анализируем структуру
+            val directories = contents.filter { it.type == "dir" }.map { it.name }
+            val readmeContent = contents.find { it.name.lowercase().contains("readme") }?.content
+            val mainFiles = contents.filter { it.type == "file" && !it.name.lowercase().contains("readme") }.take(5).map { it.name }
+            val configFiles = contents.filter { 
+                it.name.lowercase().contains("gradle") || 
+                it.name.lowercase().contains("build") || 
+                it.name.lowercase().contains("pom") || 
+                it.name.lowercase().contains("package") 
+            }.map { it.name }
+            
+            // Анализируем коммиты
+            val lastCommitDate = commits.firstOrNull()?.commit?.author?.date ?: ""
+            val commitFrequency = if (commits.size > 10) "Высокая" else if (commits.size > 5) "Средняя" else "Низкая"
+            val topContributors = mutableListOf<String>()
+            commits.take(5).forEach { commit ->
+                commit.author?.name?.let { name ->
+                    if (!topContributors.contains(name)) {
+                        topContributors.add(name)
+                    }
+                }
+            }
+            
+            return RepositoryAnalysis(
+                name = repo.name,
+                fullName = repo.full_name,
+                description = repo.description,
+                url = repo.html_url,
+                isPrivate = repo.private,
+                size = repoDetails.size,
+                primaryLanguage = repoDetails.language,
+                languages = languages.mapValues { (_, bytes) -> 
+                    val totalBytes = languages.values.sum()
+                    if (totalBytes > 0) ((bytes.toDouble() / totalBytes) * 100).toInt() else 0
+                },
+                stars = repoDetails.stargazers_count,
+                forks = repoDetails.forks_count,
+                openIssues = repoDetails.open_issues_count,
+                lastUpdated = repoDetails.updated_at,
+                createdAt = repoDetails.created_at,
+                topics = repoDetails.topics ?: emptyList(),
+                hasWiki = repoDetails.has_wiki,
+                hasPages = repoDetails.has_pages,
+                license = repoDetails.license?.name,
+                structure = RepositoryStructure(
+                    totalFiles = contents.size,
+                    directories = directories,
+                    readmeContent = readmeContent,
+                    mainFiles = mainFiles,
+                    configFiles = configFiles
+                ),
+                commitStats = CommitStatistics(
+                    totalCommits = commits.size,
+                    lastCommitDate = lastCommitDate,
+                    commitFrequency = commitFrequency,
+                    topContributors = topContributors
+                )
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Error analyzing repository ${repo.name}: ${e.message}")
+            // Возвращаем базовую информацию в случае ошибки
+            return RepositoryAnalysis(
+                name = repo.name,
+                fullName = repo.full_name,
+                description = repo.description,
+                url = repo.html_url,
+                isPrivate = repo.private,
+                size = repo.size,
+                primaryLanguage = repo.language,
+                languages = emptyMap(),
+                stars = repo.stargazers_count,
+                forks = repo.forks_count,
+                openIssues = repo.open_issues_count,
+                lastUpdated = repo.updated_at,
+                createdAt = repo.created_at,
+                topics = repo.topics ?: emptyList(),
+                hasWiki = repo.has_wiki,
+                hasPages = repo.has_pages,
+                license = repo.license?.name,
+                structure = RepositoryStructure(0, emptyList(), null, emptyList(), emptyList()),
+                commitStats = CommitStatistics(0, "", "", emptyList())
+            )
+        }
     }
     
     private fun createProfileAnalysis(profile: android.mentor.data.api.GitHubUserProfile, repositories: List<RepositoryAnalysis>): GitHubProfileSummary {
