@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  mcp-report-generator:
+    build: .
+    container_name: mcp-report-generator
+    restart: unless-stopped
+    
+    # Загружаем переменные из .env файла
+    env_file:
+      - .env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Gemini API
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Настройки отчетов
+      - REPORT_FREQUENCY=${REPORT_FREQUENCY:-daily}
+      - REPORT_TIME=${REPORT_TIME:-09:00}
+      - INCLUDE_TECH_STACK=${INCLUDE_TECH_STACK:-true}
+      - INCLUDE_ACTIVITY_ANALYSIS=${INCLUDE_ACTIVITY_ANALYSIS:-true}
+      - INCLUDE_RECOMMENDATIONS=${INCLUDE_RECOMMENDATIONS:-true}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_reports.log}
+      
+      # GitHub API настройки
+      - GITHUB_API_TIMEOUT=${GITHUB_API_TIMEOUT:-30}
+      - GITHUB_MAX_REPOSITORIES=${GITHUB_MAX_REPOSITORIES:-1000}
+      
+      # Gemini API настройки
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - GEMINI_MAX_TOKENS=${GEMINI_MAX_TOKENS:-4000}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команды по умолчанию
+    command: ["daemon"]
+
+networks:
+  mcp-network:
+    driver: bridge
