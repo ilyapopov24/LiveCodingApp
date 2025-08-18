@@ -143,6 +143,73 @@ services:
     stdin_open: true
     tty: true
 
+  # AI Advisor MCP Server для Cursor
+  mcp-ai-advisor:
+    build: .
+    container_name: mcp-ai-advisor
+    restart: unless-stopped
+    
+    # Загружаем переменные из .env файла
+    env_file:
+      - .env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_ai_advisor.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск AI Advisor MCP сервера
+    command: ["mcp-ai"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
 networks:
   mcp-network:
     driver: bridge
