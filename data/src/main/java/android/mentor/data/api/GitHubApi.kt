@@ -39,6 +39,20 @@ interface GitHubApi {
         @Header("Authorization") token: String
     ): GitHubUserProfile
     
+    @GET("users/{username}")
+    suspend fun getUserProfileByUsername(
+        @Path("username") username: String
+    ): GitHubUserProfile
+    
+    @GET("users/{username}/repos")
+    suspend fun getUserRepositoriesByUsername(
+        @Path("username") username: String,
+        @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
+        @Query("sort") sort: String = "updated",
+        @Query("direction") direction: String = "desc"
+    ): List<GitHubRepository>
+    
     @GET("user/repos")
     suspend fun getAllUserRepositories(
         @Header("Authorization") token: String,

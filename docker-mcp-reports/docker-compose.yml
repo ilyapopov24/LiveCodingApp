@@ -15,9 +15,6 @@ services:
       # GitHub API
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       
-      # Gemini API
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      
       # Email настройки
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
       - SMTP_SERVER=${SMTP_SERVER}
@@ -41,10 +38,6 @@ services:
       # GitHub API настройки
       - GITHUB_API_TIMEOUT=${GITHUB_API_TIMEOUT:-30}
       - GITHUB_MAX_REPOSITORIES=${GITHUB_MAX_REPOSITORIES:-1000}
-      
-      # Gemini API настройки
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
-      - GEMINI_MAX_TOKENS=${GEMINI_MAX_TOKENS:-4000}
       
       # Временная зона
       - TZ=${TZ:-UTC}
@@ -85,6 +78,70 @@ services:
     
     # Команды по умолчанию
     command: ["daemon"]
+
+  # MCP Server для Cursor
+  mcp-server:
+    build: .
+    container_name: mcp-github-analytics
+    restart: unless-stopped
+    
+    # Загружаем переменные из .env файла
+    env_file:
+      - .env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_server.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск MCP сервера
+    command: ["mcp"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
 
 networks:
   mcp-network:

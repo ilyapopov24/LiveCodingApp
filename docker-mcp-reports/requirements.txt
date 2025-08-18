@@ -1,6 +1,8 @@
 # Основные зависимости
-google-generativeai>=0.3.0
 requests>=2.31.0
+
+# MCP (Model Context Protocol)
+mcp>=1.0.0
 
 # Логирование и утилиты
 python-dotenv>=1.0.0

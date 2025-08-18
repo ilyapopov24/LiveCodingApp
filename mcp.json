@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "github-analytics": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-github-analytics-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
+        "docker-mcp-reports-mcp-server",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

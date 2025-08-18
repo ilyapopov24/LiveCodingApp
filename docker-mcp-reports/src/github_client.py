@@ -61,9 +61,9 @@ class GitHubClient:
             return None
     
     def get_user_profile(self) -> Optional[Dict[str, Any]]:
-        """Получение профиля пользователя"""
+        """Получение профиля текущего пользователя"""
         try:
-            logger.info("Получаю профиль пользователя...")
+            logger.info("Получаю профиль текущего пользователя...")
             
             profile = self._make_request("/user")
             
@@ -78,10 +78,28 @@ class GitHubClient:
             logger.error(f"Ошибка получения профиля: {e}")
             return None
     
-    def get_user_repositories(self, per_page: int = 100, page: int = 1) -> Optional[List[Dict[str, Any]]]:
-        """Получение списка репозиториев пользователя"""
+    def get_user_profile_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Получение профиля пользователя по username"""
         try:
-            logger.info(f"Получаю репозитории (страница {page}, по {per_page})...")
+            logger.info(f"Получаю профиль пользователя {username}...")
+            
+            profile = self._make_request(f"/users/{username}")
+            
+            if profile:
+                logger.info(f"Профиль пользователя {username} получен")
+                return profile
+            else:
+                logger.error(f"Не удалось получить профиль пользователя {username}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Ошибка получения профиля пользователя {username}: {e}")
+            return None
+    
+    def get_user_repositories(self, per_page: int = 100, page: int = 1) -> Optional[List[Dict[str, Any]]]:
+        """Получение списка репозиториев текущего пользователя"""
+        try:
+            logger.info(f"Получаю репозитории текущего пользователя (страница {page}, по {per_page})...")
             
             params = {
                 "per_page": per_page,
@@ -101,6 +119,31 @@ class GitHubClient:
                 
         except Exception as e:
             logger.error(f"Ошибка получения репозиториев: {e}")
+            return None
+    
+    def get_user_repositories_by_username(self, username: str, per_page: int = 100, page: int = 1) -> Optional[List[Dict[str, Any]]]:
+        """Получение списка репозиториев пользователя по username"""
+        try:
+            logger.info(f"Получаю репозитории пользователя {username} (страница {page}, по {per_page})...")
+            
+            params = {
+                "per_page": per_page,
+                "page": page,
+                "sort": "updated",
+                "direction": "desc"
+            }
+            
+            repositories = self._make_request(f"/users/{username}/repos", params)
+            
+            if repositories:
+                logger.info(f"Получено {len(repositories)} репозиториев для пользователя {username}")
+                return repositories
+            else:
+                logger.error(f"Не удалось получить список репозиториев для пользователя {username}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Ошибка получения репозиториев для пользователя {username}: {e}")
             return None
     
     def get_all_user_repositories(self) -> Optional[List[Dict[str, Any]]]:

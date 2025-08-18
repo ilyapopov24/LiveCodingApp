@@ -29,9 +29,12 @@ RUN useradd -m -u 1000 appuser && \
 # Переключаемся на пользователя
 USER appuser
 
-# Создаем простой entrypoint
+# Создаем entrypoint с поддержкой MCP
 RUN echo '#!/bin/bash\n\
-if [ "$1" = "test" ]; then\n\
+if [ "$1" = "mcp" ]; then\n\
+    echo "Запуск MCP сервера..." >&2\n\
+    exec python src/mcp_keepalive.py\n\
+elif [ "$1" = "test" ]; then\n\
     echo "Запуск тестового режима..."\n\
     python src/main.py\n\
 elif [ "$1" = "config" ]; then\n\
@@ -40,11 +43,22 @@ elif [ "$1" = "config" ]; then\n\
 elif [ "$1" = "manual" ]; then\n\
     echo "Запуск в ручном режиме..."\n\
     python src/main.py\n\
+elif [ "$1" = "mcp-test" ]; then\n\
+    echo "Тестирование MCP функциональности..."\n\
+    python src/mcp_server.py\n\
 else\n\
     echo "Запуск в демон-режиме..."\n\
     echo "Для автоматического запуска используйте cron на хосте или systemd" \n\
     echo "Логи будут доступны в /app/logs/" \n\
     echo "Для остановки нажмите Ctrl+C" \n\
+    echo ""\n\
+    echo "Доступные команды:"\n\
+    echo "  mcp       - Запуск MCP сервера для Cursor"\n\
+    echo "  mcp-test  - Тестирование MCP функциональности"\n\
+    echo "  test      - Тестовый режим"\n\
+    echo "  config    - Проверка конфигурации"\n\
+    echo "  manual    - Ручной режим"\n\
+    echo ""\n\
     \n\
     # Запускаем основной скрипт\n\
     python src/main.py\n\

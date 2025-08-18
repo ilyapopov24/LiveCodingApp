@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "github-analytics": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-github-analytics-cursor",
+        "docker-mcp-reports-mcp-server",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

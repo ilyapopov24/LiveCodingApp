@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # MCP Report Generator - Скрипт управления
-# Автор: MCP Report Generator Team
-# Версия: 1.0.0
+# Поддерживает как основной сервис, так и MCP сервер
 
 set -e
 
@@ -13,13 +12,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Функции для вывода
-print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+# Функция для вывода сообщений
+print_message() {
+    echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 print_warning() {
@@ -30,241 +25,199 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Проверка зависимостей
-check_dependencies() {
-    print_info "Проверка зависимостей..."
-    
+print_header() {
+    echo -e "${BLUE}=== $1 ===${NC}"
+}
+
+# Проверяем наличие Docker
+check_docker() {
     if ! command -v docker &> /dev/null; then
         print_error "Docker не установлен. Установите Docker и попробуйте снова."
         exit 1
     fi
     
+    if ! docker info &> /dev/null; then
+        print_error "Docker не запущен. Запустите Docker и попробуйте снова."
+        exit 1
+    fi
+}
+
+# Проверяем наличие docker-compose
+check_docker_compose() {
     if ! command -v docker-compose &> /dev/null; then
         print_error "Docker Compose не установлен. Установите Docker Compose и попробуйте снова."
         exit 1
     fi
-    
-    print_success "Все зависимости установлены"
 }
 
-# Проверка конфигурации
-check_config() {
-    print_info "Проверка конфигурации..."
-    
-    if [ ! -f ".env" ]; then
-        print_warning "Файл .env не найден. Создаю из примера..."
-        if [ -f "env.example" ]; then
-            cp env.example .env
-            print_warning "Файл .env создан из env.example. Пожалуйста, отредактируйте его!"
-            print_warning "Заполните обязательные поля: GITHUB_TOKEN, GEMINI_API_KEY, SMTP_*"
-            exit 1
+# Проверяем наличие .env файла
+check_env_file() {
+    if [ ! -f .env ]; then
+        print_warning "Файл .env не найден. Создайте его на основе .env.example"
+        if [ -f .env.example ]; then
+            print_message "Копирую .env.example в .env..."
+            cp .env.example .env
+            print_warning "Отредактируйте .env файл с вашими настройками"
         else
-            print_error "Файл env.example не найден. Проверьте структуру проекта."
+            print_error "Файл .env.example не найден. Создайте .env файл вручную."
             exit 1
         fi
     fi
-    
-    # Проверяем обязательные переменные
-    source .env
-    
-    if [ -z "$GITHUB_TOKEN" ] || [ "$GITHUB_TOKEN" = "your_github_token_here" ]; then
-        print_error "GITHUB_TOKEN не настроен в .env файле"
-        exit 1
-    fi
-    
-    if [ -z "$GEMINI_API_KEY" ] || [ "$GEMINI_API_KEY" = "your_gemini_api_key_here" ]; then
-        print_error "GEMINI_API_KEY не настроен в .env файле"
-        exit 1
-    fi
-    
-    if [ -z "$SMTP_USERNAME" ] || [ -z "$SMTP_PASSWORD" ] || [ -z "$SENDER_EMAIL" ] || [ -z "$RECIPIENT_EMAILS" ]; then
-        print_error "Email настройки неполные в .env файле"
-        exit 1
-    fi
-    
-    print_success "Конфигурация проверена"
 }
 
-# Создание директорий
-create_directories() {
-    print_info "Создание необходимых директорий..."
-    
-    mkdir -p logs data
-    print_success "Директории созданы"
+# Функция для запуска основного сервиса
+start_main_service() {
+    print_header "Запуск основного сервиса MCP Report Generator"
+    docker-compose up -d mcp-report-generator
+    print_message "Основной сервис запущен"
 }
 
-# Сборка образа
-build_image() {
-    print_info "Сборка Docker образа..."
-    
-    docker-compose build --no-cache
-    print_success "Образ собран"
+# Функция для запуска MCP сервера
+start_mcp_server() {
+    print_header "Запуск MCP сервера для Cursor"
+    docker-compose up -d mcp-server
+    print_message "MCP сервер запущен"
 }
 
-# Запуск сервиса
-start_service() {
-    print_info "Запуск MCP Report Generator..."
-    
-    docker-compose up -d
-    print_success "Сервис запущен"
-}
-
-# Остановка сервиса
-stop_service() {
-    print_info "Остановка MCP Report Generator..."
-    
+# Функция для остановки сервисов
+stop_services() {
+    print_header "Остановка всех сервисов"
     docker-compose down
-    print_success "Сервис остановлен"
+    print_message "Все сервисы остановлены"
 }
 
-# Перезапуск сервиса
-restart_service() {
-    print_info "Перезапуск MCP Report Generator..."
-    
+# Функция для перезапуска сервисов
+restart_services() {
+    print_header "Перезапуск сервисов"
     docker-compose restart
-    print_success "Сервис перезапущен"
+    print_message "Сервисы перезапущены"
 }
 
-# Просмотр статуса
-show_status() {
-    print_info "Статус сервисов:"
+# Функция для просмотра логов
+show_logs() {
+    local service=${1:-"all"}
+    
+    if [ "$service" = "all" ]; then
+        print_header "Логи всех сервисов"
+        docker-compose logs -f
+    else
+        print_header "Логи сервиса: $service"
+        docker-compose logs -f "$service"
+    fi
+}
+
+# Функция для сборки образов
+build_images() {
+    print_header "Сборка Docker образов"
+    docker-compose build --no-cache
+    print_message "Образы собраны"
+}
+
+# Функция для проверки статуса
+check_status() {
+    print_header "Статус сервисов"
     docker-compose ps
     
     echo ""
-    print_info "Использование ресурсов:"
-    docker stats --no-stream mcp-report-generator 2>/dev/null || print_warning "Контейнер не запущен"
+    print_header "Использование ресурсов"
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}"
 }
 
-# Просмотр логов
-show_logs() {
-    local service=${1:-mcp-report-generator}
-    local lines=${2:-50}
+# Функция для тестирования MCP сервера
+test_mcp() {
+    print_header "Тестирование MCP сервера"
     
-    print_info "Показ последних $lines строк логов для $service:"
-    docker-compose logs --tail=$lines -f $service
-}
-
-# Проверка конфигурации в контейнере
-check_container_config() {
-    print_info "Проверка конфигурации в контейнере..."
+    # Запускаем MCP сервер в фоне
+    docker-compose run --rm mcp-server mcp-test
     
-    docker-compose run --rm mcp-report-generator config
+    print_message "MCP тестирование завершено"
 }
 
-# Тестовый запуск
-test_run() {
-    print_info "Тестовый запуск MCP Report Generator..."
-    
-    docker-compose run --rm mcp-report-generator test
-}
-
-# Очистка
+# Функция для очистки
 cleanup() {
-    print_info "Очистка системы..."
+    print_header "Очистка Docker ресурсов"
     
-    docker-compose down -v --remove-orphans
-    docker system prune -f
-    print_success "Очистка завершена"
+    # Останавливаем и удаляем контейнеры
+    docker-compose down -v
+    
+    # Удаляем неиспользуемые образы
+    docker image prune -f
+    
+    # Удаляем неиспользуемые volumes
+    docker volume prune -f
+    
+    print_message "Очистка завершена"
 }
 
-# Обновление
-update() {
-    print_info "Обновление системы..."
-    
-    git pull origin main
-    docker-compose down
-    docker-compose up -d --build
-    print_success "Система обновлена"
-}
-
-# Помощь
+# Функция для показа справки
 show_help() {
     echo "MCP Report Generator - Скрипт управления"
     echo ""
     echo "Использование: $0 [КОМАНДА]"
     echo ""
     echo "Команды:"
-    echo "  start       - Запуск сервиса"
-    echo "  stop        - Остановка сервиса"
-    echo "  restart     - Перезапуск сервиса"
-    echo "  status      - Показать статус"
-    echo "  logs        - Показать логи"
-    echo "  config      - Проверить конфигурацию"
-    echo "  test        - Тестовый запуск"
-    echo "  build       - Сборка образа"
-    echo "  cleanup     - Очистка системы"
-    echo "  update      - Обновление системы"
-    echo "  help        - Показать эту справку"
+    echo "  start           - Запуск всех сервисов"
+    echo "  stop            - Остановка всех сервисов"
+    echo "  restart         - Перезапуск всех сервисов"
+    echo "  status          - Показать статус сервисов"
+    echo "  logs [СЕРВИС]   - Показать логи (всех или конкретного сервиса)"
+    echo "  build           - Пересобрать Docker образы"
+    echo "  test-mcp        - Тестирование MCP функциональности"
+    echo "  cleanup         - Очистка Docker ресурсов"
+    echo "  help            - Показать эту справку"
     echo ""
     echo "Примеры:"
-    echo "  $0 start                    # Запуск сервиса"
-    echo "  $0 logs                     # Показать логи"
-    echo "  $0 logs 100                 # Показать последние 100 строк"
-    echo "  $0 test                     # Тестовый запуск"
+    echo "  $0 start                    # Запуск всех сервисов"
+    echo "  $0 logs mcp-server          # Логи MCP сервера"
+    echo "  $0 logs mcp-report-generator # Логи основного сервиса"
     echo ""
 }
 
 # Основная логика
 main() {
-    local command=${1:-help}
+    # Проверяем зависимости
+    check_docker
+    check_docker_compose
+    check_env_file
     
-    case $command in
-        start)
-            check_dependencies
-            check_config
-            create_directories
-            build_image
-            start_service
-            show_status
+    case "${1:-start}" in
+        "start")
+            start_main_service
+            start_mcp_server
+            print_message "Все сервисы запущены"
             ;;
-        stop)
-            stop_service
+        "stop")
+            stop_services
             ;;
-        restart)
-            restart_service
-            show_status
+        "restart")
+            restart_services
             ;;
-        status)
-            show_status
+        "status")
+            check_status
             ;;
-        logs)
-            show_logs $2 $3
+        "logs")
+            show_logs "$2"
             ;;
-        config)
-            check_container_config
+        "build")
+            build_images
             ;;
-        test)
-            check_dependencies
-            check_config
-            create_directories
-            test_run
+        "test-mcp")
+            test_mcp
             ;;
-        build)
-            check_dependencies
-            build_image
-            ;;
-        cleanup)
+        "cleanup")
             cleanup
             ;;
-        update)
-            update
-            ;;
-        help|--help|-h)
+        "help"|"-h"|"--help")
             show_help
             ;;
         *)
-            print_error "Неизвестная команда: $command"
+            print_error "Неизвестная команда: $1"
+            echo ""
             show_help
             exit 1
             ;;
     esac
 }
 
-# Проверяем, что скрипт запущен из правильной директории
-if [ ! -f "docker-compose.yml" ]; then
-    print_error "Скрипт должен быть запущен из директории с docker-compose.yml"
-    exit 1
-fi
-
-# Запуск основной логики
+# Запуск основной функции
 main "$@"
