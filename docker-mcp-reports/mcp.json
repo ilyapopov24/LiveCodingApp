@@ -10,10 +10,9 @@
         "mcp-github-analytics-cursor",
         "--env-file",
         "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
-        "docker-mcp-reports-mcp-server",
+        "docker-mcp-reports-mcp-server:latest",
         "mcp"
-      ],
-      "env": {}
+      ]
     },
     "github-ai-advisor": {
       "command": "docker",
@@ -25,10 +24,9 @@
         "mcp-ai-advisor-cursor",
         "--env-file",
         "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
-        "docker-mcp-reports-mcp-ai-advisor",
+        "docker-mcp-reports-mcp-ai-advisor:latest",
         "mcp-ai"
-      ],
-      "env": {}
+      ]
     }
   }
 }
