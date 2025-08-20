@@ -210,6 +210,58 @@ services:
     stdin_open: true
     tty: true
 
+  # Python Runner MCP Server для Cursor
+  python-runner:
+    build: .
+    container_name: mcp-python-runner
+    restart: unless-stopped
+    
+    # Загружаем переменные из .env файла
+    env_file:
+      - .env
+    
+    # Переменные окружения
+    environment:
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-python_runner.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск Python Runner MCP сервера
+    command: ["python-runner"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
 networks:
   mcp-network:
     driver: bridge

@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "github-analytics": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-github-analytics-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
+        "docker-mcp-reports-mcp-server",
+        "mcp"
+      ]
+    },
+    "github-ai-advisor": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-ai-advisor-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
+        "docker-mcp-reports-mcp-ai-advisor",
+        "mcp-ai"
+      ]
+    },
+    "python-runner": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-python-runner-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
+        "docker-mcp-reports-mcp-server",
+        "python-runner"
+      ]
+    }
+  }
+}

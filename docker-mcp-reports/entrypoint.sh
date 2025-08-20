@@ -17,12 +17,17 @@ case "$1" in
         echo "Тестирование AI Advisor..."
         exec python test_ai_advisor.py
         ;;
+    "python-runner")
+        echo "Запуск Python Runner MCP сервера..."
+        exec python src/python_runner_keepalive.py
+        ;;
     *)
-        echo "Использование: $0 {mcp|mcp-ai|report|ai-test}"
-        echo "  mcp      - GitHub Analytics MCP сервер"
-        echo "  mcp-ai   - AI Advisor MCP сервер"
-        echo "  report   - Генератор отчетов"
-        echo "  ai-test  - Тест AI Advisor"
+        echo "Использование: $0 {mcp|mcp-ai|report|ai-test|python-runner}"
+        echo "  mcp           - GitHub Analytics MCP сервер"
+        echo "  mcp-ai        - AI Advisor MCP сервер"
+        echo "  report        - Генератор отчетов"
+        echo "  ai-test       - Тест AI Advisor"
+        echo "  python-runner - Python Runner MCP сервер"
         exit 1
         ;;
 esac
