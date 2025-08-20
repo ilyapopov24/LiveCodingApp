@@ -27,6 +27,22 @@
         "docker-mcp-reports-mcp-ai-advisor:latest",
         "mcp-ai"
       ]
+    },
+    "python-runner": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-python-runner-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
+        "-v",
+        "/Users/ilyapopov/Downloads/LiveCodingApp:/host",
+        "docker-mcp-reports-python-runner:latest",
+        "python-runner"
+      ]
     }
   }
 }

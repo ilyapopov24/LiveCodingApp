@@ -1,56 +1,121 @@
+#!/usr/bin/env python3
+"""
+Python Runner MCP Server
+Запускает конкретные Python файлы
+"""
+
 import json
+import subprocess
 import logging
 from typing import Dict, Any, List
 
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class PythonRunnerMCPServer:
-    """MCP сервер для выполнения Python кода"""
+    """MCP сервер для запуска Python файлов"""
     
     def __init__(self):
-        self.tools = {
-            "run-python-code": {
-                "name": "run-python-code",
-                "description": "Выполнение Python кода",
+        self.tools = [
+            {
+                "name": "run-python-file",
+                "description": "Запускает конкретный Python файл",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "code": {
+                        "file_path": {
                             "type": "string",
-                            "description": "Python код для выполнения"
+                            "description": "Путь к Python файлу для запуска"
                         }
                     },
-                    "required": ["code"]
+                    "required": ["file_path"]
                 }
             }
-        }
+        ]
     
     def list_tools(self) -> List[Dict[str, Any]]:
-        """Возвращает список доступных тулсов"""
-        return list(self.tools.values())
+        """Возвращает список доступных инструментов"""
+        return self.tools
     
-    def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Выполняет вызов тулса"""
-        if tool_name not in self.tools:
-            raise ValueError(f"Тулс {tool_name} не найден")
-        
-        if tool_name == "run-python-code":
-            return self._run_python_code(arguments)
-        
-        raise ValueError(f"Тулс {tool_name} не реализован")
+    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Вызывает указанный инструмент"""
+        if name == "run-python-file":
+            return self.run_python_file(arguments)
+        else:
+            raise ValueError(f"Неизвестный инструмент: {name}")
     
-    def _run_python_code(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Выполняет Python код (пока пустая реализация)"""
-        code = arguments.get("code", "")
+    def run_python_file(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Запускает Python файл"""
+        file_path = arguments.get("file_path")
         
-        # TODO: Здесь будет логика выполнения Python кода
-        result = f"Получен код для выполнения: {code}"
+        if not file_path:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Ошибка: не указан путь к файлу"
+                    }
+                ]
+            }
         
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": result
+        try:
+            logger.info(f"Запуск Python файла: {file_path}")
+            
+            # Запускаем Python файл
+            result = subprocess.run(
+                ["python3", file_path],
+                capture_output=True,
+                text=True,
+                timeout=30  # Таймаут 30 секунд
+            )
+            
+            # Формируем результат
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                logger.info(f"Файл {file_path} выполнен успешно")
+                
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"✅ Файл {file_path} выполнен успешно!\n\n**Вывод:**\n```\n{output}\n```"
+                        }
+                    ]
                 }
-            ]
-        }
+            else:
+                error_output = result.stderr.strip()
+                logger.error(f"Ошибка выполнения файла {file_path}: {error_output}")
+                
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Ошибка выполнения файла {file_path}!\n\n**Код ошибки:** {result.returncode}\n\n**Ошибка:**\n```\n{error_output}\n```"
+                        }
+                    ]
+                }
+                
+        except subprocess.TimeoutExpired:
+            logger.error(f"Таймаут выполнения файла {file_path}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"⏰ Таймаут выполнения файла {file_path} (30 секунд)"
+                    }
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Ошибка запуска файла {file_path}: {str(e)}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"💥 Ошибка запуска файла {file_path}: {str(e)}"
+                    }
+                ]
+            }
