@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY config/ ./config/
 COPY test_ai_advisor.py ./test_ai_advisor.py
+COPY test_calculator.py ./test_calculator.py
 
 # Создаем директории для логов и данных
 RUN mkdir -p logs data
