@@ -21,6 +21,9 @@ COPY config/ ./config/
 COPY test_ai_advisor.py ./test_ai_advisor.py
 COPY test_calculator.py ./test_calculator.py
 
+# Копируем переменные окружения
+COPY docker.env ./docker.env
+
 # Создаем директории для логов и данных
 RUN mkdir -p logs data
 

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Поддержка Docker Compose с двумя сервисами
 - Обновленный скрипт управления с MCP командами
 - Подробная документация по MCP интеграции
+- Поддержка Claude Haiku 3.5 в Python Runner MCP сервер
+- Параллельное выполнение генерации тестов с OpenAI GPT-3.5-turbo и Claude Haiku 3.5
+- Сравнительный анализ результатов тестирования от обеих моделей
+- Сводный отчет с определением лучшего результата между моделями
 
 ### Changed
 - Упрощен report_generator.py (убраны Gemini зависимости)
