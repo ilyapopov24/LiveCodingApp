@@ -24,7 +24,13 @@
   - `suggest_improvements` - конкретные улучшения для определенной области
   - `generate_goals` - генерация целей для развития
   - `compare_with_peers` - сравнение с похожими профилями
+- **Третий MCP сервер: Python Runner**
+  - `run-python-file` - запуск Python файлов
+  - `test-python-code` - генерация и запуск тестов (OpenAI GPT-3.5-turbo + Claude Haiku 3.5)
+- **Четвертый MCP сервер: Spaceweb VPS**
+  - `create-vps` - создание VPS на Spaceweb через JSON-RPC API
 - **OpenAI API интеграция для AI анализа**
+- **Anthropic API интеграция для Claude Haiku 3.5**
 - **STDIO transport для MCP серверов**
 
 ### Changed
@@ -36,9 +42,11 @@
 - **Архитектура MCP серверов для взаимодействия**
 
 ### Fixed
-- Исправлены проблемы с импортами Python модулей
+- Исправлены проблемы с импортами Python модулов
 - Решены проблемы с SMTP аутентификацией
 - Исправлены ошибки в Docker конфигурации
+- **Исправлен Python Runner MCP сервер**: добавлены недостающие методы `list_tools()` и `call_tool()`
+- **Исправлен Spaceweb MCP сервер**: обновлены параметры API согласно официальной документации JSON-RPC 2.0
 
 ## [1.0.0] - 2024-12-19
 

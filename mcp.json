@@ -41,6 +41,20 @@
         "docker-mcp-reports-mcp-server",
         "python-runner"
       ]
+    },
+    "spaceweb": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-spaceweb-cursor-chat",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker.env",
+        "docker-mcp-reports-spaceweb",
+        "spaceweb"
+      ]
     }
   }
 }

@@ -262,6 +262,61 @@ services:
     stdin_open: true
     tty: true
 
+  # Spaceweb VPS MCP Server для Cursor
+  spaceweb:
+    build: .
+    container_name: mcp-spaceweb
+    restart: unless-stopped
+    
+    # Загружаем переменные из .env файла
+    env_file:
+      - .env
+    
+    # Переменные окружения
+    environment:
+      # Spaceweb API
+      - SPACEWEB_TOKEN=${SPACEWEB_TOKEN}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-spaceweb_mcp.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск Spaceweb MCP сервера
+    command: ["spaceweb"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
 networks:
   mcp-network:
     driver: bridge
