@@ -28,7 +28,7 @@ class PythonRunnerMCPServer:
     
     def __init__(self):
         # Загружаем переменные окружения
-        load_dotenv('docker.env')
+        load_dotenv('docker-settings.env')
         
         # Инициализируем OpenAI клиент
         openai_api_key = os.getenv('OPENAI_API_KEY')
@@ -305,7 +305,12 @@ class PythonRunnerMCPServer:
     def _generate_tests_with_openai(self, source_code: str, file_path: str) -> str:
         """Генерирует тесты используя OpenAI API"""
         try:
+            # Получаем значения из переменных окружения
+            openai_max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', 2000))
+            openai_temperature = float(os.getenv('OPENAI_TEMPERATURE', 0.3))
+            
             logger.info(f"Генерирую тесты для {file_path} используя OpenAI API")
+            logger.info(f"OpenAI параметры: max_tokens={openai_max_tokens}, temperature={openai_temperature}")
             
             # Получаем имя модуля
             module_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -342,8 +347,8 @@ class PythonRunnerMCPServer:
                     {"role": "system", "content": "Ты эксперт по Python тестированию. Генерируй качественные тесты используя pytest."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=2000,
-                temperature=0.3
+                max_tokens=openai_max_tokens,
+                temperature=openai_temperature
             )
             
             test_code = response.choices[0].message.content.strip()
@@ -410,7 +415,12 @@ def test_module_import():
     def _generate_tests_with_claude(self, source_code: str, file_path: str) -> str:
         """Генерирует тесты используя Claude Haiku 3.5"""
         try:
+            # Получаем значения из переменных окружения
+            anthropic_max_tokens = int(os.getenv('ANTHROPIC_MAX_TOKENS', 2000))
+            anthropic_temperature = float(os.getenv('ANTHROPIC_TEMPERATURE', 0.3))
+            
             logger.info(f"Генерирую тесты для {file_path} используя Claude Haiku 3.5")
+            logger.info(f"Claude параметры: max_tokens={anthropic_max_tokens}, temperature={anthropic_temperature}")
             
             # Получаем имя модуля
             module_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -443,8 +453,8 @@ def test_module_import():
             
             response = self.anthropic_client.messages.create(
                 model="claude-3-5-haiku-20241022",
-                max_tokens=2000,
-                temperature=0.3,
+                max_tokens=anthropic_max_tokens,
+                temperature=anthropic_temperature,
                 messages=[
                     {
                         "role": "user", 

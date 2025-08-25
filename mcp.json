@@ -9,8 +9,10 @@
         "--name",
         "mcp-github-analytics-cursor",
         "--env-file",
-        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
-        "docker-mcp-reports-mcp-server",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-mcp-server:latest",
         "mcp"
       ]
     },
@@ -23,8 +25,10 @@
         "--name",
         "mcp-ai-advisor-cursor",
         "--env-file",
-        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
-        "docker-mcp-reports-mcp-ai-advisor",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-mcp-ai-advisor:latest",
         "mcp-ai"
       ]
     },
@@ -37,8 +41,12 @@
         "--name",
         "mcp-python-runner-cursor",
         "--env-file",
-        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/.env",
-        "docker-mcp-reports-mcp-server",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "-v",
+        "/Users/ilyapopov/Downloads/LiveCodingApp:/host",
+        "docker-mcp-reports-python-runner:latest",
         "python-runner"
       ]
     },
@@ -51,8 +59,10 @@
         "--name",
         "mcp-spaceweb-cursor-chat",
         "--env-file",
-        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker.env",
-        "docker-mcp-reports-spaceweb",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-spaceweb:latest",
         "spaceweb"
       ]
     }

@@ -6,9 +6,10 @@ services:
     container_name: mcp-report-generator
     restart: unless-stopped
     
-    # Загружаем переменные из .env файла
+    # Загружаем переменные из файлов конфигурации
     env_file:
-      - .env
+      - docker-keys.env
+      - docker-settings.env
     
     # Переменные окружения
     environment:
@@ -77,7 +78,7 @@ services:
         max-file: "3"
     
     # Команды по умолчанию
-    command: ["daemon"]
+    command: ["report"]
 
   # MCP Server для Cursor
   mcp-server:
@@ -85,9 +86,10 @@ services:
     container_name: mcp-github-analytics
     restart: unless-stopped
     
-    # Загружаем переменные из .env файла
+    # Загружаем переменные из файлов конфигурации
     env_file:
-      - .env
+      - docker-keys.env
+      - docker-settings.env
     
     # Переменные окружения
     environment:
@@ -149,9 +151,10 @@ services:
     container_name: mcp-ai-advisor
     restart: unless-stopped
     
-    # Загружаем переменные из .env файла
+    # Загружаем переменные из файлов конфигурации
     env_file:
-      - .env
+      - docker-keys.env
+      - docker-settings.env
     
     # Переменные окружения
     environment:
@@ -216,9 +219,10 @@ services:
     container_name: mcp-python-runner
     restart: unless-stopped
     
-    # Загружаем переменные из .env файла
+    # Загружаем переменные из файлов конфигурации
     env_file:
-      - .env
+      - docker-keys.env
+      - docker-settings.env
     
     # Переменные окружения
     environment:
@@ -268,9 +272,10 @@ services:
     container_name: mcp-spaceweb
     restart: unless-stopped
     
-    # Загружаем переменные из .env файла
+    # Загружаем переменные из файлов конфигурации
     env_file:
-      - .env
+      - docker-keys.env
+      - docker-settings.env
     
     # Переменные окружения
     environment:
