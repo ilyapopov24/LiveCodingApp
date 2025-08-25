@@ -201,14 +201,35 @@ class SpacewebMCPServer:
                         result_text += f"{plan.get('volume_disk')} GB) - {plan.get('price_per_month', 0)} руб/мес\n"
                     result_text += "\n"
                 
-                # Операционные системы
-                if "selectOs" in result:
+                # Дистрибутивы (правильные ID из osPanel)
+                if "osPanel" in result:
                     result_text += "💿 **Дистрибутивы ОС:**\n"
-                    for os in result["selectOs"]:
-                        result_text += f"  • ID: {os.get('os_distribution_id')} - {os.get('name')}"
-                        if os.get('description'):
-                            result_text += f" ({os.get('description')})"
-                        result_text += "\n"
+                    # Группируем по OS для читаемости
+                    os_groups = {}
+                    for dist in result["osPanel"]:
+                        os_id = dist.get('os')
+                        if os_id not in os_groups:
+                            os_groups[os_id] = []
+                        os_groups[os_id].append(dist)
+                    
+                    for os_id, distributions in os_groups.items():
+                        # Находим название ОС из selectOs
+                        os_name = "Unknown OS"
+                        if "selectOs" in result:
+                            for os_info in result["selectOs"]:
+                                if str(os_info.get('id')) == str(os_id):
+                                    os_name = os_info.get('name', 'Unknown OS')
+                                    break
+                        
+                        result_text += f"  **{os_name} (os_id: {os_id}):**\n"
+                        for dist in distributions:
+                            panel_name = "No Panel"
+                            if "selectPanel" in result:
+                                for panel in result["selectPanel"]:
+                                    if str(panel.get('id')) == str(dist.get('panel')):
+                                        panel_name = panel.get('name', 'Unknown Panel')
+                                        break
+                            result_text += f"    • ID: {dist.get('distributive')} - {panel_name}\n"
                     result_text += "\n"
                 
                 # Датацентры
@@ -218,12 +239,7 @@ class SpacewebMCPServer:
                         result_text += f"  • ID: {dc.get('id')} - {dc.get('location')} ({dc.get('site_name')})\n"
                     result_text += "\n"
                 
-                # Записываем полный ответ в файл на хосте
-                with open('/app/data/spaceweb_response.json', 'w', encoding='utf-8') as f:
-                    json.dump(response_data, f, indent=2, ensure_ascii=False)
-                
-                result_text += "ℹ️ Используйте эти ID для создания VPS с помощью create-vps\n\n"
-                result_text += "🔍 **ПОЛНЫЙ ОТВЕТ записан в файл data/spaceweb_response.json**"
+                result_text += "ℹ️ Используйте эти **distributive ID** для создания VPS с помощью create-vps"
                 
                 return {
                     "content": [
