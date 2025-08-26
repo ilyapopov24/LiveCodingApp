@@ -322,6 +322,70 @@ services:
     stdin_open: true
     tty: true
 
+  # HTTP сервер как прослойка между Android и MCP серверами
+  http-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile.http-bridge
+    container_name: mcp-http-bridge
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # HTTP сервер настройки
+      - PORT=8080
+      - HOST=0.0.0.0
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-http_bridge.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # Доступ к Docker daemon
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host  # Доступ к файлам хоста
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Порт для HTTP API
+    ports:
+      - "8080:8080"
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+
+    
+    # Зависимость от других сервисов
+    depends_on:
+      - python-runner
+
 networks:
   mcp-network:
     driver: bridge

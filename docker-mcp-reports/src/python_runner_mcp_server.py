@@ -74,6 +74,24 @@ class PythonRunnerMCPServer:
                     },
                     "required": ["file_path"]
                 }
+            },
+            {
+                "name": "fix-android-bug",
+                "description": "Анализирует Android проект и исправляет указанный баг используя Claude AI",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "project_path": {
+                            "type": "string",
+                            "description": "Путь к Android проекту (например: /host/test-project)"
+                        },
+                        "bug_description": {
+                            "type": "string",
+                            "description": "Описание бага для исправления"
+                        }
+                    },
+                    "required": ["project_path", "bug_description"]
+                }
             }
         ]
 
@@ -91,6 +109,11 @@ class PythonRunnerMCPServer:
                 return self.run_python_file(arguments.get("file_path"))
             elif tool_name == "test-python-code":
                 return self.test_python_code(arguments.get("file_path"))
+            elif tool_name == "fix-android-bug":
+                return self.fix_android_bug(
+                    arguments.get("project_path"), 
+                    arguments.get("bug_description")
+                )
             else:
                 return {
                     "content": [
@@ -594,6 +617,158 @@ def test_module_import():
                     }
                 ]
             }
+
+    def fix_android_bug(self, project_path: str, bug_description: str) -> Dict[str, Any]:
+        """Анализирует Android проект и исправляет указанный баг используя Claude AI"""
+        try:
+            logger.info(f"Анализ Android проекта: {project_path}")
+            logger.info(f"Описание бага: {bug_description}")
+            
+            if not project_path or not bug_description:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "❌ Не указан путь к проекту или описание бага"
+                        }
+                    ]
+                }
+            
+            # Проверяем существование директории проекта
+            if not os.path.exists(project_path):
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Директория проекта не найдена: {project_path}"
+                        }
+                    ]
+                }
+            
+            # Собираем все исходные файлы проекта
+            project_files = self._collect_android_project_files(project_path)
+            
+            if not project_files:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Не найдены исходные файлы в проекте: {project_path}"
+                        }
+                    ]
+                }
+            
+            logger.info(f"Найдено {len(project_files)} файлов для анализа")
+            
+            # Отправляем в Claude AI для анализа и исправления
+            fixed_code = self._analyze_and_fix_with_claude(project_files, bug_description)
+            
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": fixed_code
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа Android проекта: {str(e)}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"💥 Ошибка анализа Android проекта: {str(e)}"
+                    }
+                ]
+            }
+
+    def _collect_android_project_files(self, project_path: str) -> Dict[str, str]:
+        """Собирает все исходные файлы Android проекта"""
+        project_files = {}
+        
+        # Расширения файлов для анализа
+        extensions = ['.kt', '.java', '.xml', '.gradle', '.gradle.kts', '.properties']
+        
+        for root, dirs, files in os.walk(project_path):
+            # Пропускаем системные директории
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['build', 'gradle', '.gradle']]
+            
+            for file in files:
+                if any(file.endswith(ext) for ext in extensions):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        # Относительный путь от корня проекта
+                        relative_path = os.path.relpath(file_path, project_path)
+                        project_files[relative_path] = content
+                    except Exception as e:
+                        logger.warning(f"Не удалось прочитать файл {file_path}: {e}")
+        
+        return project_files
+
+    def _analyze_and_fix_with_claude(self, project_files: Dict[str, str], bug_description: str) -> str:
+        """Анализирует проект и исправляет баг используя Claude AI"""
+        try:
+            # Формируем промпт для Claude
+            project_summary = "\n".join([f"📁 {path}:\n```\n{content}\n```" for path, content in project_files.items()])
+            
+            prompt = f"""
+Ты - эксперт по Android разработке. Проанализируй следующий Android проект и исправь указанный баг.
+
+ОПИСАНИЕ БАГА:
+{bug_description}
+
+ИСХОДНЫЙ КОД ПРОЕКТА:
+{project_summary}
+
+ЗАДАЧА:
+1. Проанализируй код и найди причину бага
+2. Предложи исправление
+3. Покажи исправленный код с объяснением изменений
+
+ВАЖНО:
+- Используй только существующие Android API и библиотеки
+- Не придумывай несуществующие методы или классы
+- Объясни, что именно было исправлено
+- Покажи diff изменений
+
+Формат ответа:
+🔍 АНАЛИЗ БАГА:
+[Твое объяснение проблемы]
+
+🛠️ ИСПРАВЛЕНИЕ:
+[Объяснение исправления]
+
+📝 ИСПРАВЛЕННЫЙ КОД:
+[Покажи только измененные файлы с исправлениями]
+
+✅ РЕЗУЛЬТАТ:
+[Что исправлено и как проверить]
+"""
+            
+            # Отправляем в Claude AI
+            response = self.anthropic_client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=8000,
+                temperature=0.1,
+                messages=[
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            result = response.content[0].text.strip()
+            logger.info(f"Claude AI проанализировал проект и предложил исправления")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа через Claude AI: {str(e)}")
+            return f"💥 Ошибка анализа через Claude AI: {str(e)}"
 
     def _run_tests(self, test_file: str, original_file: str) -> Dict[str, Any]:
         """Запускает тесты и возвращает результаты"""

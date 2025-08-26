@@ -14,6 +14,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import android.text.Editable
 import android.text.TextWatcher
+import android.app.AlertDialog
+import android.widget.EditText
+import android.widget.LinearLayout
 
 @AndroidEntryPoint
 class MCPChatFragment : Fragment() {
@@ -98,6 +101,10 @@ class MCPChatFragment : Fragment() {
             Toast.makeText(context, "История чата очищена", Toast.LENGTH_SHORT).show()
         }
 
+        binding.buttonAnalyzeProject.setOnClickListener {
+            showProjectAnalysisDialog()
+        }
+
         // Включаем кнопку отправки при вводе текста
         binding.editTextMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -125,5 +132,38 @@ class MCPChatFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun showProjectAnalysisDialog() {
+        val editText = EditText(context).apply {
+            hint = "Опишите баг для исправления..."
+            setText("Приложение крашится при открытии второго экрана")
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        
+        val dialogLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 50, 50, 50)
+            addView(editText)
+        }
+        
+        AlertDialog.Builder(requireContext())
+            .setTitle("🔍 Анализ Android проекта")
+            .setMessage("Проект будет проанализирован из папки /host/test-project")
+            .setView(dialogLayout)
+            .setPositiveButton("Анализировать") { _, _ ->
+                val bugDescription = editText.text.toString().trim()
+                if (bugDescription.isNotEmpty()) {
+                    // Отправляем команду в MCP чат
+                    val command = "fix-android-bug /host/test-project \"$bugDescription\""
+                    viewModel.sendMessage(command)
+                    Toast.makeText(context, "Команда отправлена в MCP чат", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 }

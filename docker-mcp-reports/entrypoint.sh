@@ -25,14 +25,19 @@ case "$1" in
         echo "Запуск Spaceweb VPS MCP сервера..."
         exec python src/spaceweb_keepalive.py
         ;;
+    "http-bridge")
+        echo "Запуск HTTP Bridge сервера..."
+        exec python src/http_server.py
+        ;;
     *)
-        echo "Использование: $0 {mcp|mcp-ai|report|ai-test|python-runner|spaceweb}"
+        echo "Использование: $0 {mcp|mcp-ai|report|ai-test|python-runner|spaceweb|http-bridge}"
         echo "  mcp           - GitHub Analytics MCP сервер"
         echo "  mcp-ai        - AI Advisor MCP сервер"
         echo "  report        - Генератор отчетов"
         echo "  ai-test       - Тест AI Advisor"
         echo "  python-runner - Python Runner MCP сервер"
         echo "  spaceweb      - Spaceweb VPS MCP сервер"
+        echo "  http-bridge   - HTTP Bridge для Android приложения"
         exit 1
         ;;
 esac

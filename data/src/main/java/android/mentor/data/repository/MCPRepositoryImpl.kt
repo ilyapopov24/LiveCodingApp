@@ -24,9 +24,16 @@ import android.util.Log
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.util.UUID
 import javax.inject.Inject
 import org.json.JSONObject
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import java.util.concurrent.TimeUnit
 
 class MCPRepositoryImpl @Inject constructor(
     private val geminiApi: GeminiApi,
@@ -49,7 +56,13 @@ class MCPRepositoryImpl @Inject constructor(
 
     override suspend fun sendMessage(message: String): MCPChatMessage {
         return try {
-            Log.d(TAG, "Processing user message through Gemini: $message")
+            Log.d(TAG, "Processing user message: $message")
+            
+            // Проверяем, является ли это командой для MCP сервера
+            if (message.startsWith("fix-android-bug")) {
+                Log.d(TAG, "Detected fix-android-bug command, sending to MCP server")
+                return executeMCPCommand(message)
+            }
             
             // 1. Отправляем сообщение пользователя в Gemini для анализа
             val geminiResponse = geminiApi.processUserMessage(message)
@@ -115,6 +128,52 @@ class MCPRepositoryImpl @Inject constructor(
                 isUser = false,
                 timestamp = System.currentTimeMillis(),
                 model = "system",
+                isError = true,
+                errorMessage = e.message
+            )
+        }
+    }
+
+    private suspend fun executeMCPCommand(message: String): MCPChatMessage {
+        return try {
+            Log.d(TAG, "Executing MCP command: $message")
+            
+            // Парсим команду fix-android-bug
+            val parts = message.split(" ", limit = 3)
+            if (parts.size < 3) {
+                return MCPChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    content = "❌ Неверный формат команды. Используйте: fix-android-bug <путь> \"<описание бага>\"",
+                    isUser = false,
+                    timestamp = System.currentTimeMillis(),
+                    model = "mcp-server",
+                    isError = true,
+                    errorMessage = "Неверный формат команды"
+                )
+            }
+            
+            val projectPath = parts[1]
+            val bugDescription = parts[2].removeSurrounding("\"")
+            
+            // Отправляем команду в Python Runner MCP сервер
+            val result = executePythonRunnerMCPCommand(projectPath, bugDescription)
+            
+            MCPChatMessage(
+                id = UUID.randomUUID().toString(),
+                content = result,
+                isUser = false,
+                timestamp = System.currentTimeMillis(),
+                model = "python-runner-mcp"
+            )
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to execute MCP command: ${e.message}")
+            MCPChatMessage(
+                id = UUID.randomUUID().toString(),
+                content = "❌ Ошибка выполнения MCP команды: ${e.message}",
+                isUser = false,
+                timestamp = System.currentTimeMillis(),
+                model = "mcp-server",
                 isError = true,
                 errorMessage = e.message
             )
@@ -1135,4 +1194,73 @@ class MCPRepositoryImpl @Inject constructor(
         val parameters: Map<String, String>,
         val description: String
     )
+    
+    private suspend fun executePythonRunnerMCPCommand(projectPath: String, bugDescription: String): String = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Executing Python Runner MCP command: projectPath=$projectPath, bugDescription=$bugDescription")
+            
+            // Отправляем HTTP запрос в HTTP Bridge сервер
+            val httpClient = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .build()
+            
+            val requestBody = JSONObject().apply {
+                put("project_path", projectPath)
+                put("bug_description", bugDescription)
+            }.toString()
+            
+            val request = Request.Builder()
+                .url("http://10.0.2.2:8080/fix-android-bug")  // 10.0.2.2 = localhost для эмулятора
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            Log.d(TAG, "Sending HTTP request to HTTP Bridge: ${request.url}")
+            
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "Empty response"
+            
+            Log.d(TAG, "HTTP response: $responseBody")
+            
+            if (response.isSuccessful) {
+                val jsonResponse = JSONObject(responseBody)
+                Log.d(TAG, "Parsed JSON response: success=${jsonResponse.optBoolean("success")}")
+                
+                if (jsonResponse.optBoolean("success", false)) {
+                    val data = jsonResponse.optJSONObject("data")
+                    Log.d(TAG, "Data object: $data")
+                    
+                    if (data != null) {
+                        val content = data.optJSONArray("content")
+                        Log.d(TAG, "Content array: $content, length: ${content?.length()}")
+                        
+                        if (content != null && content.length() > 0) {
+                            val firstContent = content.getJSONObject(0)
+                            val text = firstContent.optString("text", "Результат получен")
+                            Log.d(TAG, "Extracted text: $text")
+                            text
+                        } else {
+                            Log.w(TAG, "Content array is empty or null")
+                            "✅ Анализ завершен, но результат пустой"
+                        }
+                    } else {
+                        Log.w(TAG, "Data object is null")
+                        "✅ Анализ завершен, но данные отсутствуют"
+                    }
+                } else {
+                    val error = jsonResponse.optString("error", "Unknown error")
+                    Log.w(TAG, "Response indicates failure: $error")
+                    "❌ Ошибка: $error"
+                }
+            } else {
+                Log.w(TAG, "HTTP request failed: ${response.code} - $responseBody")
+                "❌ HTTP ошибка: ${response.code} - $responseBody"
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to execute Python Runner MCP command: ${e.message}")
+            e.printStackTrace()
+            "❌ Ошибка выполнения MCP команды: ${e.message}"
+        }
+    }
 }
