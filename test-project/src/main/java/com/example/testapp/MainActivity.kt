@@ -9,7 +9,9 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var textView: TextView
     private lateinit var button: Button
-    
+
+    val buttonText = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -18,8 +20,7 @@ class MainActivity : AppCompatActivity() {
         button = findViewById(R.id.button)
         
         button.setOnClickListener {
-=            val crashText = null
-            textView.text = crashText.toString()
+            textView.text = buttonText.toString()
         }
     }
 }
