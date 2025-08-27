@@ -34,6 +34,11 @@ class PythonRunnerKeepaliveServer:
         try:
             if method == "initialize":
                 tools = self.mcp_server.list_tools()
+                
+                logger.info(f"Инициализация MCP сервера - доступно тулсов: {len(tools)}")
+                for tool in tools:
+                    logger.info(f"Тулса: {tool['name']} - {tool['description']}")
+                
                 response = {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -53,6 +58,9 @@ class PythonRunnerKeepaliveServer:
             elif method == "tools/call":
                 name = request.get('params', {}).get('name')
                 arguments = request.get('params', {}).get('arguments', {})
+                
+                logger.info(f"Вызов тулсы: {name} с аргументами: {arguments}")
+                
                 result = self.mcp_server.call_tool(name, arguments)
                 response = {
                     "jsonrpc": "2.0",
@@ -69,7 +77,7 @@ class PythonRunnerKeepaliveServer:
                 response = {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "result": "pong"
+                    "result": {"pong": True}
                 }
             else:
                 logger.warning(f"Неизвестный метод: {method}")
@@ -85,7 +93,7 @@ class PythonRunnerKeepaliveServer:
             return response
             
         except Exception as e:
-            logger.error(f"Ошибка обработки запроса {method}: {str(e)}")
+            logger.error(f"Ошибка при обработке запроса {method}: {e}")
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -96,50 +104,36 @@ class PythonRunnerKeepaliveServer:
             }
     
     def run(self):
-        """Запускает keepalive STDIO сервер"""
+        """Запускает STDIO сервер"""
         logger.info("Python Runner MCP сервер запущен")
         
         try:
             while True:
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                
                 try:
-                    # Читаем строку из stdin
-                    line = sys.stdin.readline()
-                    if not line:
-                        logger.info("stdin закрыт, завершаем работу")
-                        break
+                    request = json.loads(line.strip())
+                    response = self.handle_request(request)
                     
-                    line = line.strip()
-                    if not line:
-                        continue
-                    
-                    try:
-                        request = json.loads(line)
-                        response = self.handle_request(request)
+                    if response:
+                        print(json.dumps(response))
+                        sys.stdout.flush()
                         
-                        if response:
-                            response_str = json.dumps(response, ensure_ascii=False)
-                            print(response_str, flush=True)
-                            logger.info(f"Отправлен ответ: {response}")
-                    
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Ошибка парсинга JSON: {e}")
-                        continue
-                    
-                    except Exception as e:
-                        logger.error(f"Неожиданная ошибка: {e}")
-                        continue
-                        
-                except KeyboardInterrupt:
-                    logger.info("Получен сигнал прерывания, завершение работы")
-                    break
+                except json.JSONDecodeError as e:
+                    logger.error(f"Ошибка парсинга JSON: {e}")
+                    continue
                 except Exception as e:
-                    logger.error(f"Критическая ошибка: {e}")
-                    break
+                    logger.error(f"Неожиданная ошибка: {e}")
+                    continue
                     
+        except KeyboardInterrupt:
+            logger.info("Получен сигнал прерывания, завершение работы")
         except Exception as e:
-            logger.error(f"STDIN закрыт, завершаем работу: {e}")
+            logger.error(f"Критическая ошибка: {e}")
         finally:
-            logger.info("Python Runner MCP сервер завершен")
+            logger.info("Python Runner MCP сервер остановлен")
 
 if __name__ == "__main__":
     server = PythonRunnerKeepaliveServer()

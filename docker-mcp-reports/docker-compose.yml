@@ -237,6 +237,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
+      - ../:/host  # Доступ к файлам хоста (относительный путь)
     
     # Сетевые настройки
     networks:

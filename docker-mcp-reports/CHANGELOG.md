@@ -8,6 +8,11 @@
 ## [Unreleased]
 
 ### Added
+- **Настраиваемые параметры AI для тулсы fix-android-bug**:
+  - `ANTHROPIC_TEMPERATURE` - настраивается через docker-settings.env (по умолчанию 0.1)
+  - `ANTHROPIC_MAX_TOKENS` - настраивается через docker-settings.env (по умолчанию 8000)
+  - Добавлены комментарии в docker-settings.env для объяснения настроек
+  - Перезапущены контейнеры python-runner для применения изменений
 - Автоматический генератор отчетов GitHub профиля
 - Docker контейнеризация для простого развертывания
 - Поддержка Gmail и Yandex SMTP

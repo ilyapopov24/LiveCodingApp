@@ -7,12 +7,16 @@ import json
 import logging
 import os
 import subprocess
+from datetime import datetime
 from typing import Dict, Any, Optional
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -27,19 +31,39 @@ class MCPServerManager:
     def execute_python_runner_command(self, command: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Выполняет команду в Python Runner MCP сервере"""
         try:
-            logger.info(f"Executing Python Runner command: {command} with args: {args}")
+            logger.info(f"🚀 Executing Python Runner command: {command} with args: {args}")
+            
+            # ПРИНУДИТЕЛЬНЫЙ ВЫВОД В КОНСОЛЬ ДЛЯ DOCKER LOGS
+            print(f"🔧 MCP COMMAND: {command}")
+            print(f"📝 ARGUMENTS: {args}")
+            print(f"⏰ TIMESTAMP: {datetime.now().isoformat()}")
             
             # Импортируем и используем Python Runner MCP сервер напрямую
             try:
+                logger.info("📦 Importing PythonRunnerMCPServer...")
+                print("📦 Importing PythonRunnerMCPServer...")
                 from src.python_runner_mcp_server import PythonRunnerMCPServer
+                logger.info("✅ PythonRunnerMCPServer imported successfully")
+                print("✅ PythonRunnerMCPServer imported successfully")
                 
                 # Создаем экземпляр сервера
+                logger.info("🔧 Creating server instance...")
+                print("🔧 Creating server instance...")
                 server = PythonRunnerMCPServer()
+                logger.info("✅ Server instance created")
+                print("✅ Server instance created")
                 
                 # Вызываем инструмент
+                logger.info(f"🎯 Calling tool: {command}")
+                print(f"🎯 Calling tool: {command}")
                 result = server.call_tool(command, args)
+                logger.info(f"✅ Tool executed successfully")
+                print(f"✅ Tool executed successfully")
+                logger.info(f"📊 Result type: {type(result)}")
+                print(f"📊 Result type: {type(result)}")
+                logger.info(f"📄 Result content: {str(result)[:200]}...")
+                print(f"📄 Result content: {str(result)[:200]}...")
                 
-                logger.info(f"Command executed successfully: {result}")
                 return {
                     "success": True,
                     "data": result,
@@ -48,20 +72,27 @@ class MCPServerManager:
                 }
                 
             except ImportError as e:
-                logger.error(f"Failed to import PythonRunnerMCPServer: {e}")
+                logger.error(f"❌ Failed to import PythonRunnerMCPServer: {e}")
+                logger.error(f"📁 Current working directory: {os.getcwd()}")
+                logger.error(f"📂 Directory contents: {os.listdir('.')}")
                 return {
                     "success": False,
                     "error": f"Import error: {e}"
                 }
             except Exception as e:
-                logger.error(f"Failed to execute command: {e}")
+                logger.error(f"❌ Failed to execute command: {e}")
+                logger.error(f"🔍 Exception type: {type(e)}")
+                import traceback
+                logger.error(f"📚 Traceback: {traceback.format_exc()}")
                 return {
                     "success": False,
                     "error": f"Execution error: {e}"
                 }
                 
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.error(f"💥 Unexpected error: {e}")
+            import traceback
+            logger.error(f"📚 Traceback: {traceback.format_exc()}")
             return {
                 "success": False,
                 "error": f"Unexpected error: {e}"
@@ -102,6 +133,11 @@ def fix_android_bug():
         
         logger.info(f"Received fix-android-bug request: project_path={project_path}, bug_description={bug_description}")
         
+        # ПРИНУДИТЕЛЬНЫЙ ВЫВОД В КОНСОЛЬ ДЛЯ DOCKER LOGS
+        print(f"🚀 FIX-ANDROID-BUG: project_path={project_path}")
+        print(f"🐛 BUG DESCRIPTION: {bug_description}")
+        print(f"⏰ TIMESTAMP: {datetime.now().isoformat()}")
+        
         # Выполняем команду в Python Runner MCP сервере
         result = mcp_manager.execute_python_runner_command(
             'fix-android-bug',
@@ -110,6 +146,11 @@ def fix_android_bug():
                 'bug_description': bug_description
             }
         )
+        
+        # Логируем результат
+        print(f"✅ RESULT: success={result.get('success', False)}")
+        if 'error' in result:
+            print(f"❌ ERROR: {result['error']}")
         
         if result['success']:
             return jsonify(result)

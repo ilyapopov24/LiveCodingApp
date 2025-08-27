@@ -23,6 +23,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def debug_print(message: str):
+    """Принудительный вывод в stdout и stderr для лучшей видимости в Docker"""
+    print(message)
+    import sys
+    sys.stderr.write(f"{message}\n")
+    sys.stderr.flush()
+
 class PythonRunnerMCPServer:
     """MCP сервер для запуска Python файлов и генерации тестов"""
     
@@ -620,48 +627,101 @@ def test_module_import():
 
     def fix_android_bug(self, project_path: str, bug_description: str) -> Dict[str, Any]:
         """Анализирует Android проект и исправляет указанный баг используя Claude AI"""
+        
+        # ПРОСТОЙ PRINT ДЛЯ ЛОГОВ В DOCKER
+        print("="*50)
+        print("🚀 НАЧАЛО ВЫПОЛНЕНИЯ fix-android-bug")
+        print(f"📁 Путь к проекту: {project_path}")
+        print(f"🐛 Описание бага: {bug_description}")
+        print("="*50)
+        
         try:
+            # ПРИНУДИТЕЛЬНЫЙ ВЫВОД НАСТРОЕК НЕЙРОНКИ
+            debug_print("🚀 НАЧАЛО ВЫПОЛНЕНИЯ fix-android-bug")
+            debug_print(f"📁 Путь к проекту: {project_path}")
+            debug_print(f"🐛 Описание бага: {bug_description}")
+            
+            # Получаем настройки нейронки из переменных окружения
+            anthropic_temperature = os.getenv('ANTHROPIC_TEMPERATURE', '0.8')
+            anthropic_max_tokens = os.getenv('ANTHROPIC_MAX_TOKENS', '4000')
+            debug_print(f"🌡️ ANTHROPIC_TEMPERATURE: {anthropic_temperature}")
+            debug_print(f"🎯 ANTHROPIC_MAX_TOKENS: {anthropic_max_tokens}")
+            
+            # ДУБЛИРУЕМ В PRINT ДЛЯ DOCKER ЛОГОВ
+            print(f"🌡️ ANTHROPIC_TEMPERATURE: {anthropic_temperature}")
+            print(f"🎯 ANTHROPIC_MAX_TOKENS: {anthropic_max_tokens}")
+            
             logger.info(f"Анализ Android проекта: {project_path}")
             logger.info(f"Описание бага: {bug_description}")
             
             if not project_path or not bug_description:
+                error_msg = "❌ ОШИБКА: Не указан путь к проекту или описание бага"
+                debug_print(error_msg)
+                print(error_msg)  # Дублируем в print
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": "❌ Не указан путь к проекту или описание бага"
+                            "text": error_msg
                         }
                     ]
                 }
             
             # Проверяем существование директории проекта
             if not os.path.exists(project_path):
+                error_msg = f"❌ ОШИБКА: Директория проекта не найдена: {project_path}"
+                debug_print(error_msg)
+                print(error_msg)  # Дублируем в print
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"❌ Директория проекта не найдена: {project_path}"
+                            "text": error_msg
                         }
                     ]
                 }
+            
+            success_msg = "✅ Директория проекта найдена, начинаю сбор файлов..."
+            debug_print(success_msg)
+            print(success_msg)  # Дублируем в print
             
             # Собираем все исходные файлы проекта
             project_files = self._collect_android_project_files(project_path)
             
             if not project_files:
+                error_msg = "❌ ОШИБКА: Не найдены исходные файлы в проекте"
+                debug_print(error_msg)
+                print(error_msg)  # Дублируем в print
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"❌ Не найдены исходные файлы в проекте: {project_path}"
+                            "text": error_msg
                         }
                     ]
                 }
             
+            # Добавляем логи фильтрации в ответ
+            debug_print("📊 СТАТИСТИКА ФИЛЬТРАЦИИ:")
+            print("📊 СТАТИСТИКА ФИЛЬТРАЦИИ:")  # Дублируем в print
+            # Убираем неправильный подсчет - используем только правильный из _collect_android_project_files
+            debug_print(f"   Включено в анализ: {len(project_files)}")
+            print(f"   Включено в анализ: {len(project_files)}")  # Дублируем в print
+            
+            success_msg = f"✅ Найдено {len(project_files)} файлов для анализа"
+            debug_print(success_msg)
+            print(success_msg)  # Дублируем в print
             logger.info(f"Найдено {len(project_files)} файлов для анализа")
             
             # Отправляем в Claude AI для анализа и исправления
+            debug_print("🤖 Отправляю в Claude AI для анализа...")
+            print("🤖 Отправляю в Claude AI для анализа...")  # Дублируем в print
+            
+            # Получаем результат
             fixed_code = self._analyze_and_fix_with_claude(project_files, bug_description)
+            
+            debug_print("✅ Claude AI завершил анализ")
+            print("✅ Claude AI завершил анализ")  # Дублируем в print
             
             return {
                 "content": [
@@ -673,38 +733,96 @@ def test_module_import():
             }
             
         except Exception as e:
+            error_msg = f"💥 КРИТИЧЕСКАЯ ОШИБКА: {str(e)}"
+            debug_print(error_msg)
+            print(error_msg)  # Дублируем в print
             logger.error(f"Ошибка анализа Android проекта: {str(e)}")
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"💥 Ошибка анализа Android проекта: {str(e)}"
+                        "text": error_msg
                     }
                 ]
             }
 
     def _collect_android_project_files(self, project_path: str) -> Dict[str, str]:
-        """Собирает все исходные файлы Android проекта"""
+        """Собирает исходные файлы Android проекта с умной фильтрацией для экономии токенов"""
         project_files = {}
         
-        # Расширения файлов для анализа
-        extensions = ['.kt', '.java', '.xml', '.gradle', '.gradle.kts', '.properties']
+        # Расширения файлов для анализа (только важные)
+        extensions = ['.kt', '.java']  # Убираем .xml, .gradle - они не нужны для анализа бага
+        
+        # Директории для исключения (экономия токенов)
+        EXCLUDED_DIRS = ['build', '.gradle', 'gradle', '.idea', '__pycache__', '~', 
+                        'node_modules', '.git', 'target', 'bin', 'obj', 'Debug', 'Release']
+        
+        # Счетчики для отслеживания
+        total_files = 0
+        excluded_count = 0
+        
+        logger.info(f"🔍 Начинаю сбор файлов проекта: {project_path}")
         
         for root, dirs, files in os.walk(project_path):
-            # Пропускаем системные директории
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['build', 'gradle', '.gradle']]
+            # Фильтруем директории для следующих итераций
+            dirs[:] = [d for d in dirs if not (
+                d.startswith('.') or 
+                d in ['build', 'gradle', '.gradle', 'node_modules', 'target', 'bin', 'obj'] or
+                d in EXCLUDED_DIRS
+            )]
+            
+            # ПРОВЕРЯЕМ ТЕКУЩУЮ ДИРЕКТОРИЮ root
+            rel_root = os.path.relpath(root, project_path)
+            if any(excluded_dir in rel_root.split(os.sep) for excluded_dir in EXCLUDED_DIRS):
+                # Пропускаем файлы из исключенных директорий
+                continue
             
             for file in files:
-                if any(file.endswith(ext) for ext in extensions):
-                    file_path = os.path.join(root, file)
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        # Относительный путь от корня проекта
-                        relative_path = os.path.relpath(file_path, project_path)
-                        project_files[relative_path] = content
-                    except Exception as e:
-                        logger.warning(f"Не удалось прочитать файл {file_path}: {e}")
+                total_files += 1
+                
+                # Проверяем расширение
+                if not any(file.endswith(ext) for ext in extensions):
+                    excluded_count += 1
+                    continue
+                
+                # Проверяем путь
+                file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, project_path)
+                
+                # Дополнительная проверка пути
+                if any(excluded_dir in rel_path.split(os.sep) for excluded_dir in EXCLUDED_DIRS):
+                    excluded_count += 1
+                    continue
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # УМНАЯ ФИЛЬТРАЦИЯ: исключаем ненужные файлы для анализа бага
+                    if any(exclude_pattern in rel_path.lower() for exclude_pattern in [
+                        'test', 'androidtest', 'example', 'drawable', 'values', 'mipmap', 
+                        'xml/', 'res/', 'config', 'rules', 'security', 'backup'
+                    ]):
+                        excluded_count += 1
+                        continue
+                    
+                    # Добавляем в результат только важные файлы
+                    project_files[rel_path] = content
+                    
+                except Exception as e:
+                    logger.warning(f"Не удалось прочитать файл {file_path}: {e}")
+                    excluded_count += 1
+        
+        # Логируем статистику фильтрации
+        logger.info(f"📊 СТАТИСТИКА ФИЛЬТРАЦИИ:")
+        logger.info(f"   Всего файлов: {total_files}")
+        logger.info(f"   Исключено: {excluded_count}")
+        logger.info(f"   Включено в анализ: {len(project_files)}")
+        
+        print(f"📊 СТАТИСТИКА ФИЛЬТРАЦИИ:")
+        print(f"   Всего файлов: {total_files}")
+        print(f"   Исключено: {excluded_count}")
+        print(f"   Включено в анализ: {len(project_files)}")
         
         return project_files
 
@@ -748,11 +866,20 @@ def test_module_import():
 [Что исправлено и как проверить]
 """
             
+            # Получаем значения из переменных окружения
+            anthropic_max_tokens = int(os.getenv('ANTHROPIC_MAX_TOKENS', 4000))
+            anthropic_temperature = float(os.getenv('ANTHROPIC_TEMPERATURE', 0.8))
+            
+            # Принудительный вывод для отладки в Docker
+            debug_print(f"🔧 Claude AI параметры: max_tokens={anthropic_max_tokens}, temperature={anthropic_temperature}")
+            debug_print(f"📏 Размер промпта: {len(prompt)} символов")
+            debug_print(f"📁 Количество файлов для анализа: {len(project_files)}")
+            
             # Отправляем в Claude AI
             response = self.anthropic_client.messages.create(
                 model="claude-3-5-haiku-20241022",
-                max_tokens=8000,
-                temperature=0.1,
+                max_tokens=anthropic_max_tokens,
+                temperature=anthropic_temperature,
                 messages=[
                     {
                         "role": "user", 
@@ -760,6 +887,21 @@ def test_module_import():
                     }
                 ]
             )
+            
+            # Логируем информацию о токенах
+            if hasattr(response, 'usage'):
+                input_tokens = getattr(response.usage, 'input_tokens', 0)
+                output_tokens = getattr(response.usage, 'output_tokens', 0)
+                total_tokens = getattr(response.usage, 'total_tokens', 0)
+                
+                # Примерная стоимость (Claude Haiku 3.5: $0.25/1M input, $1.25/1M output)
+                estimated_cost = (input_tokens * 0.25 / 1_000_000) + (output_tokens * 1.25 / 1_000_000)
+                
+                # Принудительный вывод токенов
+                debug_print(f"🎯 Токены Claude AI: input={input_tokens}, output={output_tokens}, total={total_tokens}")
+                debug_print(f"💰 Примерная стоимость: ${estimated_cost:.6f}")
+            else:
+                debug_print("⚠️ Информация о токенах недоступна в ответе Claude AI")
             
             result = response.content[0].text.strip()
             logger.info(f"Claude AI проанализировал проект и предложил исправления")
