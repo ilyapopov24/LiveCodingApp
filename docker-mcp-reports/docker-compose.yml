@@ -387,6 +387,146 @@ services:
     depends_on:
       - python-runner
 
+  # Python Runner HTTP Server для удаленного доступа
+  python-runner-http:
+    build: .
+    container_name: python-runner-http
+    restart: unless-stopped
+    ports:
+      - "8001:8001"  # Открываем порт для внешнего доступа
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Anthropic API
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # Настройки токенов
+      - ANTHROPIC_TEMPERATURE=${ANTHROPIC_TEMPERATURE:-0.8}
+      - ANTHROPIC_MAX_TOKENS=${ANTHROPIC_MAX_TOKENS:-4000}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+      
+      # Пользователь для файлов
+      - USER_ID=1000
+      - GROUP_ID=1000
+    
+    # Volumes для доступа к файлам хоста и загрузкам
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+      - python_uploads:/tmp/python_uploads
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска HTTP сервера
+    command: ["python-runner-http"]
+
+  # Туннель сервер для внешнего доступа
+  tunnel-server:
+    build: .
+    container_name: python-runner-tunnel
+    restart: unless-stopped
+    ports:
+      - "8002:8002"  # Порт для туннеля
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+      
+      # Пользователь для файлов
+      - USER_ID=1000
+      - GROUP_ID=1000
+    
+    # Volumes для доступа к файлам хоста и загрузкам
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+      - python_uploads:/tmp/python_uploads
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска туннель сервера
+    command: ["tunnel-server"]
+    
+    # Зависимость от HTTP сервера
+    depends_on:
+      - python-runner-http
+
 networks:
   mcp-network:
-    driver: bridge
+
+volumes:
+  python_uploads:

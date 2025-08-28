@@ -35,6 +35,10 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
+# Создаем директорию для загрузок с правильными правами
+RUN mkdir -p /tmp/python_uploads && \
+    chown -R appuser:appuser /tmp/python_uploads
+
 # Переключаемся на пользователя
 USER appuser
 

@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **УДАЛЕННЫЙ ДОСТУП К MCP СЕРВЕРУ PYTHON-RUNNER**
+  - HTTP API обертка для MCP сервера (порт 8001)
+  - Tunnel сервер для внешнего доступа (порт 8002)
+  - Localtunnel интеграция для публичного URL
+  - Система загрузки Python файлов с удаленных компьютеров
+  - Автоматическая генерация и выполнение тестов через OpenAI GPT-3.5-turbo и Claude Haiku 3.5
+  - Shared Docker volume для обмена файлами между контейнерами
+  - Полная интеграция с реальной тулсой test-python-code MCP сервера
+
+### Fixed
+- **DOCKER КОНТЕЙНЕРЫ И СЕТИ**
+  - Исправлены права доступа к shared volume в Dockerfile
+  - Упрощен entrypoint.sh для корректной работы команд
+  - Исправлена конфигурация docker-compose.yml с правильными командами
+  - Настроен Docker network для межконтейнерного взаимодействия
+  - Исправлены проблемы с перезапуском контейнеров
 - MCP (Model Context Protocol) интеграция с Cursor
 - MCP сервер с STDIO transport
 - 11 MCP tools для GitHub аналитики и email функциональности
