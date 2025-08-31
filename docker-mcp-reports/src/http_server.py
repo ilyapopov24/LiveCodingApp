@@ -164,6 +164,47 @@ def fix_android_bug():
             "error": f"Internal server error: {e}"
         }), 500
 
+@app.route('/build-android-pipeline', methods=['POST'])
+def build_android_pipeline():
+    """Эндпоинт для запуска Android debug build pipeline"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
+        
+        logger.info("Received build-android-pipeline request")
+        
+        # ПРИНУДИТЕЛЬНЫЙ ВЫВОД В КОНСОЛЬ ДЛЯ DOCKER LOGS
+        print(f"🚀 BUILD-ANDROID-PIPELINE: Starting pipeline")
+        print(f"⏰ TIMESTAMP: {datetime.now().isoformat()}")
+        
+        # Выполняем команду в Python Runner MCP сервере
+        result = mcp_manager.execute_python_runner_command(
+            'build-android-pipeline',
+            {}
+        )
+        
+        # Логируем результат
+        print(f"✅ RESULT: success={result.get('success', False)}")
+        if 'error' in result:
+            print(f"❌ ERROR: {result['error']}")
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        logger.error(f"Error in build-android-pipeline endpoint: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Internal server error: {e}"
+        }), 500
+
 @app.route('/mcp/execute', methods=['POST'])
 def execute_mcp_command():
     """Универсальный эндпоинт для выполнения MCP команд"""

@@ -104,6 +104,15 @@ class PythonRunnerMCPServer:
                     },
                     "required": ["project_path", "bug_description"]
                 }
+            },
+            {
+                "name": "build-android-pipeline",
+                "description": "Запускает Android debug build pipeline через GitHub Actions",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
             }
         ]
 
@@ -126,6 +135,8 @@ class PythonRunnerMCPServer:
                     arguments.get("project_path"), 
                     arguments.get("bug_description")
                 )
+            elif tool_name == "build-android-pipeline":
+                return self.build_android_pipeline()
             else:
                 return {
                     "content": [
@@ -1084,6 +1095,152 @@ def test_module_import():
         except Exception as e:
             logger.error(f"Ошибка анализа через Claude AI: {str(e)}")
             return f"💥 Ошибка анализа через Claude AI: {str(e)}"
+
+    def build_android_pipeline(self) -> Dict[str, Any]:
+        """Запускает Android debug build pipeline"""
+        try:
+            logger.info("🚀 Запуск Android debug build pipeline")
+            
+            # Путь к проекту в volume mount
+            project_path = "/host"
+            workflow_file = os.path.join(project_path, ".github/workflows/android-debug-build.yml")
+            
+            # Проверяем существование workflow файла
+            if not os.path.exists(workflow_file):
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "❌ Workflow файл не найден: .github/workflows/android-debug-build.yml"
+                        }
+                    ]
+                }
+            
+            # Получаем GitHub токен из переменных окружения
+            github_token = os.getenv('GITHUB_TOKEN')
+            if not github_token:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "❌ GITHUB_TOKEN не настроен. Добавьте токен в .env файл для запуска сборки."
+                        }
+                    ]
+                }
+            
+            # Пытаемся запустить workflow через GitHub API
+            try:
+                logger.info("Импортируем PyGithub...")
+                from github import Github
+                logger.info("PyGithub импортирован успешно")
+                
+                # Инициализируем GitHub клиент
+                logger.info(f"Инициализируем GitHub клиент с токеном: {github_token[:10]}...")
+                g = Github(github_token)
+                logger.info("GitHub клиент инициализирован")
+                
+                # Получаем информацию о репозитории из git config
+                git_config_path = os.path.join(project_path, ".git/config")
+                logger.info(f"Проверяем git config: {git_config_path}")
+                
+                if os.path.exists(git_config_path):
+                    logger.info("Git config найден, читаем содержимое...")
+                    with open(git_config_path, 'r') as f:
+                        config_content = f.read()
+                    logger.info(f"Git config содержимое: {config_content[:200]}...")
+                    
+                    # Извлекаем URL репозитория
+                    import re
+                    url_match = re.search(r'url\s*=\s*(https://github\.com/[^/]+/[^/]+\.git)', config_content)
+                    if url_match:
+                        repo_url = url_match.group(1)
+                        repo_name = repo_url.replace('https://github.com/', '').replace('.git', '')
+                        logger.info(f"Найден репозиторий: {repo_name}")
+                        
+                        # Получаем репозиторий
+                        logger.info("Получаем объект репозитория...")
+                        repo = g.get_repo(repo_name)
+                        logger.info(f"Репозиторий получен: {repo.full_name}")
+                        
+                        # Запускаем workflow через gh CLI (надежный способ)
+                        logger.info("Запускаем workflow через gh CLI...")
+                        
+                        # Используем subprocess для вызова gh CLI
+                        import subprocess
+                        
+                        # Запускаем gh api для repository_dispatch
+                        result = subprocess.run([
+                            "gh", "api", f"repos/{repo_name}/dispatches",
+                            "--method", "POST",
+                            "-f", "event_type=android-debug-build"
+                        ], capture_output=True, text=True, timeout=30)
+                        
+                        if result.returncode == 0:
+                            logger.info("Workflow запущен через gh CLI repository_dispatch успешно!")
+                            return {
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": f"✅ Android debug build pipeline запущен!\n\n📱 Сборка началась в репозитории {repo_name}\n🔗 Проверить статус: https://github.com/{repo_name}/actions"
+                                    }
+                                ]
+                            }
+                        else:
+                            logger.error(f"Ошибка запуска через gh CLI: {result.stderr}")
+                            # Fallback: пробуем через API repository_dispatch
+                            logger.info("Пробуем через GitHub API repository_dispatch...")
+                            try:
+                                repo.create_repository_dispatch("android-debug-build", {})
+                                logger.info("Workflow запущен через API repository_dispatch успешно!")
+                                return {
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": f"✅ Android debug build pipeline запущен!\n\n📱 Сборка началась в репозитории {repo_name}\n🔗 Проверить статус: https://github.com/{repo_name}/actions"
+                                        }
+                                    ]
+                                }
+                            except Exception as api_error:
+                                logger.error(f"Ошибка через API: {api_error}")
+                                return {
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": f"❌ Не удалось запустить workflow. Попробуйте вручную: https://github.com/{repo_name}/actions"
+                                        }
+                                    ]
+                                }
+                    
+            except ImportError:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "❌ PyGithub не установлен. Установите: pip install PyGithub"
+                        }
+                    ]
+                }
+            except Exception as e:
+                logger.error(f"Ошибка запуска workflow через GitHub API: {str(e)}")
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"💥 Ошибка запуска workflow: {str(e)}\n\nПопробуйте запустить вручную:\n1. GitHub репозиторий → Actions\n2. Выберите 'Android Debug Build'\n3. Нажмите 'Run workflow'"
+                        }
+                    ]
+                }
+                
+        except Exception as e:
+            logger.error(f"Ошибка запуска Android build pipeline: {str(e)}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"💥 Ошибка запуска Android build pipeline: {str(e)}"
+                    }
+                ]
+            }
 
     def _run_tests(self, test_file: str, original_file: str) -> Dict[str, Any]:
         """Запускает тесты и возвращает результаты"""

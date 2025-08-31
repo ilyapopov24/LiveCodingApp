@@ -1263,4 +1263,76 @@ class MCPRepositoryImpl @Inject constructor(
             "❌ Ошибка выполнения MCP команды: ${e.message}"
         }
     }
+    
+    override suspend fun executeBuildPipeline(): String? {
+        return executeBuildPipelineMCPCommand()
+    }
+    
+    private suspend fun executeBuildPipelineMCPCommand(): String = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Executing build-android-pipeline MCP command")
+            
+            // Отправляем HTTP запрос в HTTP Bridge сервер
+            val httpClient = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .build()
+            
+            val requestBody = JSONObject().apply {
+                put("tool_name", "build-android-pipeline")
+            }.toString()
+            
+            val request = Request.Builder()
+                .url("http://10.0.2.2:8080/build-android-pipeline")  // 10.0.2.2 = localhost для эмулятора
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            Log.d(TAG, "Sending HTTP request to HTTP Bridge: ${request.url}")
+            
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "Empty response"
+            
+            Log.d(TAG, "HTTP response: $responseBody")
+            
+            if (response.isSuccessful) {
+                val jsonResponse = JSONObject(responseBody)
+                Log.d(TAG, "Parsed JSON response: success=${jsonResponse.optBoolean("success")}")
+                
+                if (jsonResponse.optBoolean("success", false)) {
+                    val data = jsonResponse.optJSONObject("data")
+                    Log.d(TAG, "Data object: $data")
+                    
+                    if (data != null) {
+                        val content = data.optJSONArray("content")
+                        Log.d(TAG, "Content array: $content, length: ${content?.length()}")
+                        
+                        if (content != null && content.length() > 0) {
+                            val firstContent = content.getJSONObject(0)
+                            val text = firstContent.optString("text", "Pipeline запущен")
+                            Log.d(TAG, "Extracted text: $text")
+                            text
+                        } else {
+                            Log.w(TAG, "Content array is empty or null")
+                            "✅ Pipeline запущен, но результат пустой"
+                        }
+                    } else {
+                        Log.w(TAG, "Data object is null")
+                        "✅ Pipeline запущен, но данные отсутствуют"
+                    }
+                } else {
+                    val error = jsonResponse.optString("error", "Unknown error")
+                    Log.w(TAG, "Response indicates failure: $error")
+                    "❌ Ошибка: $error"
+                }
+            } else {
+                Log.w(TAG, "HTTP request failed: ${response.code} - $responseBody")
+                "❌ HTTP ошибка: ${response.code} - $responseBody"
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to execute build-android-pipeline MCP command: ${e.message}")
+            e.printStackTrace()
+            "❌ Ошибка выполнения MCP команды: ${e.message}"
+        }
+    }
 }

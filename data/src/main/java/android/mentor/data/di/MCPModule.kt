@@ -3,7 +3,9 @@ package android.mentor.data.di
 import android.mentor.data.api.GitHubApi
 import android.mentor.data.api.GeminiApi
 import android.mentor.data.repository.MCPRepositoryImpl
+import android.mentor.data.repository.GitHubActionsRepositoryImpl
 import android.mentor.domain.repository.MCPRepository
+import android.mentor.domain.repository.GitHubActionsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -19,6 +21,9 @@ abstract class MCPModule {
 
     @Binds
     abstract fun bindMCPRepository(impl: MCPRepositoryImpl): MCPRepository
+    
+    @Binds
+    abstract fun bindGitHubActionsRepository(impl: GitHubActionsRepositoryImpl): GitHubActionsRepository
 
     companion object {
         @Provides
@@ -32,5 +37,7 @@ abstract class MCPModule {
         fun provideGeminiApi(): GeminiApi {
             return GeminiApi()
         }
+        
+
     }
 }

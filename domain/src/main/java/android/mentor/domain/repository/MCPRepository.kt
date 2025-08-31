@@ -36,4 +36,6 @@ interface MCPRepository {
     suspend fun getTechnologyStack(): String?
     
     suspend fun getActivityStatistics(): String?
+    
+    suspend fun executeBuildPipeline(): String?
 }

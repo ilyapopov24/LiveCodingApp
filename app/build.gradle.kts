@@ -82,6 +82,13 @@ dependencies {
     // WebSocket для MCP соединения
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
 
+    // OkHttp для прямых HTTP запросов к GitHub API
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    
+    // Gson для работы с JSON
+    implementation("com.google.code.gson:gson:2.10.1")
+
     implementation(project(":domain"))
     implementation(project(":presentation"))
     implementation(project(":data"))

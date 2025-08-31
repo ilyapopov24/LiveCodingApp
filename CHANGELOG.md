@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2025-01-27
+
+### Added
+- **Build Pipeline Integration**: Added new MCP tool `build-android-pipeline` to Python Runner MCP server
+- **Android Chat Command**: Added recognition of "собери пайплайн" command in Android chat
+- **GitHub Actions Integration**: MCP tool can trigger Android debug build workflow via GitHub API
+- **PyGithub Dependency**: Added PyGithub library for GitHub API integration
+
+### Changed
+- **Python Runner MCP Server**: Extended with build pipeline functionality
+- **ChatViewModel**: Added special command handling for build pipeline requests
+- **Docker Configuration**: Updated requirements.txt with PyGithub dependency
+
+### Technical Details
+- New MCP tool: `build-android-pipeline` - triggers GitHub Actions workflow
+- Command recognition: "собери пайплайн" in Android chat triggers build pipeline
+- GitHub API integration: Uses PyGithub to create workflow dispatch events
+- Workflow target: `android-debug-build.yml` workflow in GitHub repository
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

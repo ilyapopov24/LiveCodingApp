@@ -6,6 +6,9 @@ mcp>=1.0.0
 openai>=1.0.0
 anthropic>=0.34.0
 
+# GitHub CLI Python клиент
+PyGithub>=2.1.0
+
 # Логирование и утилиты
 python-dotenv>=1.0.0
 

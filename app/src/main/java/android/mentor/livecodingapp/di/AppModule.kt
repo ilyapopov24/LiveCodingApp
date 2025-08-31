@@ -1,8 +1,12 @@
 package android.mentor.livecodingapp.di
 
+import android.content.Context
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
+import javax.inject.Singleton
 
 @Module(
     includes = [
@@ -15,4 +19,11 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 object AppModule {
     // Этот модуль включает в себя все модули из data слоя
+    
+    @Provides
+    @Singleton
+    @Named("application")
+    fun provideApplicationContext(context: Context): Context {
+        return context
+    }
 }
