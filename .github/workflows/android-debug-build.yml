@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: [ master, develop ]
   workflow_dispatch: # Позволяет запускать вручную
-  repository_dispatch: # Позволяет запускать через API
+  repository_dispatch:
+    types: [android-debug-build]
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.configureondemand=true
