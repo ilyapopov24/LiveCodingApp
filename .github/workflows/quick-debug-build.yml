@@ -2,7 +2,7 @@ name: Quick Debug Build
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
