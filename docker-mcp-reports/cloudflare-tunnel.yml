@@ -1,0 +1,7 @@
+tunnel: 409120f3-36fd-4fab-b733-fbffb34c8f71
+credentials-file: /Users/ilyapopov/.cloudflared/409120f3-36fd-4fab-b733-fbffb34c8f71.json
+
+ingress:
+  - hostname: python-runner-ilya.popov-challenge.com
+    service: http://localhost:8002
+  - service: http_status:404

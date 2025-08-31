@@ -1,0 +1,74 @@
+{
+  "mcpServers": {
+    "github-analytics": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-github-analytics-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-mcp-server:latest",
+        "mcp"
+      ]
+    },
+    "github-ai-advisor": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-ai-advisor-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-mcp-ai-advisor:latest",
+        "mcp-ai"
+      ]
+    },
+    "python-runner": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-python-runner-cursor",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "-v",
+        "/Users/ilyapopov/Downloads/LiveCodingApp:/host",
+        "docker-mcp-reports-python-runner:latest",
+        "python-runner"
+      ]
+    },
+    "spaceweb": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-spaceweb-cursor-chat",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-keys.env",
+        "--env-file",
+        "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/docker-settings.env",
+        "docker-mcp-reports-spaceweb:latest",
+        "spaceweb"
+      ]
+    },
+    "ollama": {
+      "command": "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/ollama_mcp.sh",
+      "args": []
+    }
+  }
+}

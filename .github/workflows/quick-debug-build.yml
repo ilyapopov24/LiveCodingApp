@@ -1,0 +1,47 @@
+name: Quick Debug Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true
+
+jobs:
+  quick-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug --no-daemon --parallel
+      
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: quick-debug-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+        
+    - name: Build Summary
+      run: |
+        echo "=== QUICK BUILD SUMMARY ==="
+        echo "Debug APK size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
+        echo "Build completed in $(($SECONDS / 60)) minutes!"

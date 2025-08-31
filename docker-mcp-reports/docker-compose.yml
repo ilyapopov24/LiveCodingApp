@@ -1,0 +1,625 @@
+version: '3.8'
+
+services:
+  mcp-report-generator:
+    build: .
+    container_name: mcp-report-generator
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Настройки отчетов
+      - REPORT_FREQUENCY=${REPORT_FREQUENCY:-daily}
+      - REPORT_TIME=${REPORT_TIME:-09:00}
+      - INCLUDE_TECH_STACK=${INCLUDE_TECH_STACK:-true}
+      - INCLUDE_ACTIVITY_ANALYSIS=${INCLUDE_ACTIVITY_ANALYSIS:-true}
+      - INCLUDE_RECOMMENDATIONS=${INCLUDE_RECOMMENDATIONS:-true}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_reports.log}
+      
+      # GitHub API настройки
+      - GITHUB_API_TIMEOUT=${GITHUB_API_TIMEOUT:-30}
+      - GITHUB_MAX_REPOSITORIES=${GITHUB_MAX_REPOSITORIES:-1000}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команды по умолчанию
+    command: ["report"]
+
+  # MCP Server для Cursor
+  mcp-server:
+    build: .
+    container_name: mcp-github-analytics
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_server.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск MCP сервера
+    command: ["mcp"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
+  # AI Advisor MCP Server для Cursor
+  mcp-ai-advisor:
+    build: .
+    container_name: mcp-ai-advisor
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # GitHub API
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Email настройки
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-gmail}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-mcp_ai_advisor.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск AI Advisor MCP сервера
+    command: ["mcp-ai"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
+  # Python Runner MCP Server для Cursor
+  python-runner:
+    build: .
+    container_name: mcp-python-runner
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-python_runner.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ../:/host  # Доступ к файлам хоста (относительный путь)
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск Python Runner MCP сервера
+    command: ["python-runner"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
+  # Spaceweb VPS MCP Server для Cursor
+  spaceweb:
+    build: .
+    container_name: mcp-spaceweb
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # Spaceweb API
+      - SPACEWEB_TOKEN=${SPACEWEB_TOKEN}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-spaceweb_mcp.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Запуск Spaceweb MCP сервера
+    command: ["spaceweb"]
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+
+  # HTTP сервер как прослойка между Android и MCP серверами
+  http-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile.http-bridge
+    container_name: mcp-http-bridge
+    restart: unless-stopped
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # HTTP сервер настройки
+      - PORT=8080
+      - HOST=0.0.0.0
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-http_bridge.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # Доступ к Docker daemon
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host  # Доступ к файлам хоста
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Порт для HTTP API
+    ports:
+      - "8080:8080"
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+
+    
+    # Зависимость от других сервисов
+    depends_on:
+      - python-runner
+
+  # Python Runner HTTP Server для удаленного доступа
+  python-runner-http:
+    build: .
+    container_name: python-runner-http
+    restart: unless-stopped
+    ports:
+      - "8001:8001"  # Открываем порт для внешнего доступа
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Anthropic API
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # Настройки токенов
+      - ANTHROPIC_TEMPERATURE=${ANTHROPIC_TEMPERATURE:-0.8}
+      - ANTHROPIC_MAX_TOKENS=${ANTHROPIC_MAX_TOKENS:-4000}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+      
+      # Пользователь для файлов
+      - USER_ID=1000
+      - GROUP_ID=1000
+    
+    # Volumes для доступа к файлам хоста и загрузкам
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+      - python_uploads:/tmp/python_uploads
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска HTTP сервера
+    command: ["python-runner-http"]
+
+  # Туннель сервер для внешнего доступа
+  tunnel-server:
+    build: .
+    container_name: python-runner-tunnel
+    restart: unless-stopped
+    ports:
+      - "8002:8002"  # Порт для туннеля
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+      
+      # Пользователь для файлов
+      - USER_ID=1000
+      - GROUP_ID=1000
+    
+    # Volumes для доступа к файлам хоста и загрузкам
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+      - python_uploads:/tmp/python_uploads
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска туннель сервера
+    command: ["tunnel-server"]
+    
+    # Зависимость от HTTP сервера
+    depends_on:
+      - python-runner-http
+
+  # Ollama сервер для локальных LLM моделей (оптимизирован для Apple Silicon)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    restart: unless-stopped
+    ports:
+      - "11434:11434"  # Стандартный порт ollama
+    
+    # Volumes для моделей и данных
+    volumes:
+      - ollama_models:/root/.ollama
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Переменные окружения для оптимизации
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_GPU_LAYERS=35  # Используем GPU для большинства слоев
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов (оптимизировано для M1 Pro)
+    deploy:
+      resources:
+        limits:
+          memory: 12G  # Больше памяти для GPU операций
+          cpus: '6.0'  # Больше CPU для параллельной обработки
+        reservations:
+          memory: 8G
+          cpus: '4.0'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Ollama MCP сервер для Cursor
+  ollama-mcp:
+    build: .
+    container_name: mcp-ollama
+    restart: unless-stopped
+    
+    # Volumes для доступа к файлам хоста
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска Ollama MCP сервера
+    command: ["ollama-mcp"]
+
+networks:
+  mcp-network:
+
+volumes:
+  python_uploads:
+  ollama_models:
