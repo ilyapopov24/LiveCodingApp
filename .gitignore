@@ -13,3 +13,8 @@ gradle.properties
 gradle.properties.template
 *.backup
 .idea/misc.xml
+
+# Python virtual environments
+venv/
+venv_neural/
+venv_neural2/
