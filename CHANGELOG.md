@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ANDROID DEBUG BUILD PIPELINE**
+  - GitHub Actions CI/CD пайплайн для автоматической debug-сборки
+  - Полный пайплайн с тестами и lint проверкой (android-debug-build.yml)
+  - Быстрый пайплайн для быстрой сборки без тестов (quick-debug-build.yml)
+  - Локальный bash скрипт сборки с цветным выводом (build-debug.sh)
+  - Makefile для удобной сборки с командами make
+  - Оптимизированные Gradle настройки для debug сборки (gradle-debug.properties)
+  - Подробная документация по использованию (DEBUG_BUILD_README.md)
+  - Автоматическая установка APK на подключенное устройство
+  - Кэширование Gradle зависимостей и оптимизации сборки
+  - Генерация отчетов (lint, test) и загрузка артефактов (APK, AAB)
+
 - **УДАЛЕННЫЙ ДОСТУП К MCP СЕРВЕРУ PYTHON-RUNNER**
   - HTTP API обертка для MCP сервера (порт 8001)
   - Tunnel сервер для внешнего доступа (порт 8002)

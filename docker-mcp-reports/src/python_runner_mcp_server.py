@@ -11,6 +11,7 @@ import tempfile
 import os
 import openai
 import anthropic
+import requests
 import asyncio
 import concurrent.futures
 from typing import Dict, Any, List
@@ -52,6 +53,10 @@ class PythonRunnerMCPServer:
         
         self.anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
         logger.info("Anthropic API настроен успешно")
+        
+        # Настройка Ollama для локальных моделей
+        self.ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama-server:11434')
+        logger.info(f"Ollama настроен на: {self.ollama_base_url}")
         
         self.tools = [
             {
@@ -246,13 +251,14 @@ class PythonRunnerMCPServer:
             
             logger.info(f"Файл {file_path} прочитан, размер: {len(source_code)} символов")
             
-            # Генерируем тесты параллельно используя обе модели
-            logger.info("Запускаем параллельную генерацию тестов с OpenAI и Claude")
+            # Генерируем тесты параллельно используя три модели
+            logger.info("Запускаем параллельную генерацию тестов с OpenAI, Claude и Ollama Qwen:06")
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                # Запускаем обе модели параллельно
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                # Запускаем три модели параллельно
                 openai_future = executor.submit(self._generate_tests_with_openai, source_code, file_path)
                 claude_future = executor.submit(self._generate_tests_with_claude, source_code, file_path)
+                ollama_future = executor.submit(self._generate_tests_with_ollama, source_code, file_path)
                 
                 # Ждем результаты
                 try:
@@ -272,14 +278,23 @@ class PythonRunnerMCPServer:
                     claude_test_code = None
                     claude_success = False
                     logger.error(f"Claude не смог сгенерировать тесты: {e}")
+                
+                try:
+                    ollama_test_code = ollama_future.result(timeout=120)  # Больше времени для локальной модели
+                    ollama_success = True
+                    logger.info("Ollama Qwen:06 успешно сгенерировал тесты")
+                except Exception as e:
+                    ollama_test_code = None
+                    ollama_success = False
+                    logger.error(f"Ollama не смог сгенерировать тесты: {e}")
             
             # Проверяем, что хотя бы одна модель сработала
-            if not openai_success and not claude_success:
+            if not openai_success and not claude_success and not ollama_success:
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"❌ Обе модели не смогли сгенерировать тесты для файла {file_path}"
+                            "text": f"❌ Все модели не смогли сгенерировать тесты для файла {file_path}"
                         }
                     ]
                 }
@@ -317,6 +332,16 @@ class PythonRunnerMCPServer:
                     logger.info(f"Файл с тестами Claude создан: {claude_test_file}")
                     claude_result = self._run_tests(claude_test_file, temp_original_file)
                     results.append(("Claude Haiku 3.5", claude_result))
+                
+                # Запускаем тесты для Ollama (если есть)
+                if ollama_success and ollama_test_code:
+                    ollama_test_file = os.path.join(temp_dir, f"test_ollama_{original_filename}")
+                    with open(ollama_test_file, 'w', encoding='utf-8') as test_file:
+                        test_file.write(ollama_test_code)
+                    
+                    logger.info(f"Файл с тестами Ollama создан: {ollama_test_file}")
+                    ollama_result = self._run_tests(ollama_test_file, temp_original_file)
+                    results.append(("Ollama Qwen:06", ollama_result))
             
             # Формируем сводный отчет
             return self._create_comparison_report(file_path, results)
@@ -362,11 +387,18 @@ class PythonRunnerMCPServer:
 
 Сгенерируй тесты которые:
 1. Импортируют модуль как `test_module = __import__('{module_name}')`
-2. Тестируют все функции и классы
-3. Включают граничные случаи
-4. Используют pytest
-5. Обязательно используют `test_module.` для всех вызовов
-6. НЕ используют никакие другие имена модулей
+2. ПОКРЫВАЮТ ВСЕ ПУБЛИЧНЫЕ МЕТОДЫ И ГРАНИЧНЫЕ СЛУЧАИ
+3. Тестируют каждый метод с несколькими наборами входных данных
+4. Включают позитивные и негативные сценарии
+5. Тестируют граничные значения и исключения
+6. Добавляют тесты для валидации входных параметров
+7. Тестируют все ветки условных операторов
+8. Добавляют тесты для различных типов данных
+9. Тестируют взаимодействие между компонентами
+10. Тестируют состояния объектов до и после операций
+11. Используют pytest
+12. Обязательно используют `test_module.` для всех вызовов
+13. НЕ используют никакие другие имена модулей
 
 Верни только код тестов без дополнительных объяснений.
 """
@@ -442,6 +474,140 @@ def test_module_import():
             logger.error(f"Ошибка OpenAI API при генерации тестов: {e}")
             raise e
 
+    def _generate_tests_with_ollama(self, source_code: str, file_path: str) -> str:
+        """Генерирует тесты используя Ollama с локальной моделью Qwen:06"""
+        try:
+            # Получаем значения из переменных окружения
+            ollama_max_tokens = int(os.getenv('OLLAMA_MAX_TOKENS', 4000))
+            ollama_temperature = float(os.getenv('OLLAMA_TEMPERATURE', 0.3))
+            
+            logger.info(f"Генерирую тесты для {file_path} используя Ollama Llama2:7b")
+            logger.info(f"Ollama параметры: max_tokens={ollama_max_tokens}, temperature={ollama_temperature}")
+            
+            # Получаем имя модуля
+            module_name = os.path.splitext(os.path.basename(file_path))[0]
+            
+            prompt = f"""
+Сгенерируй полноценные тесты для Python кода используя pytest.
+
+ВАЖНО: 
+- НЕ используй прямые вызовы функций - всегда используй `test_module.`
+- Убедись что все тесты используют `test_module.` для доступа к функциям
+- Импортируй модуль как `test_module = __import__('{module_name}')`
+- НИКОГДА не используй имена временных файлов в импортах
+- Всегда используй имя модуля '{module_name}' для импорта
+
+Код для тестирования:
+```python
+{source_code}
+```
+
+Сгенерируй тесты которые:
+1. Импортируют модуль как `test_module = __import__('{module_name}')`
+2. ПОКРЫВАЮТ ВСЕ ПУБЛИЧНЫЕ МЕТОДЫ И ГРАНИЧНЫЕ СЛУЧАИ
+3. Тестируют каждый метод с несколькими наборами входных данных
+4. Включают позитивные и негативные сценарии
+5. Тестируют граничные значения и исключения
+6. Добавляют тесты для валидации входных параметров
+7. Тестируют все ветки условных операторов
+8. Добавляют тесты для различных типов данных
+9. Тестируют взаимодействие между компонентами
+10. Тестируют состояния объектов до и после операций
+11. Используют pytest
+12. Обязательно используют `test_module.` для всех вызовов
+13. НЕ используют никакие другие имена модулей
+
+Верни только код тестов без дополнительных объяснений.
+"""
+            
+            logger.info(f"Отправляю запрос к Ollama API: {self.ollama_base_url}")
+            logger.info(f"Промпт для Ollama: {prompt[:200]}...")
+            
+            # Отправляем запрос к Ollama API
+            response = requests.post(
+                f"{self.ollama_base_url}/api/generate",
+                json={
+                    "model": "llama2:7b",
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": ollama_temperature,
+                        "num_predict": ollama_max_tokens,
+                        "num_ctx": 8192
+                    }
+                },
+                timeout=300
+            )
+            
+            logger.info(f"Ollama ответил со статусом: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"Ollama API ошибка: {response.status_code} - {response.text}")
+                raise Exception(f"Ollama API ошибка: {response.status_code} - {response.text}")
+            
+            response_data = response.json()
+            logger.info(f"Ollama response_data: {str(response_data)[:200]}...")
+            test_code = response_data.get("response", "").strip()
+            
+            # Убираем markdown разметку если есть
+            if test_code.startswith("```python"):
+                test_code = test_code[9:]
+            if test_code.startswith("```"):
+                test_code = test_code[3:]
+            if test_code.endswith("```"):
+                test_code = test_code[:-3]
+            
+            test_code = test_code.strip()
+            
+            # Полностью переписываем код тестов чтобы гарантировать правильные импорты
+            # Извлекаем только функции тестирования из ответа Ollama
+            lines = test_code.split('\n')
+            test_functions = []
+            in_test_function = False
+            current_function = []
+
+            for line in lines:
+                if line.strip().startswith('def test_'):
+                    if current_function:
+                        test_functions.append('\n'.join(current_function))
+                    current_function = [line]
+                    in_test_function = True
+                elif in_test_function and line.strip() and not line.strip().startswith('#'):
+                    current_function.append(line)
+                elif in_test_function and line.strip().startswith('#'):
+                    current_function.append(line)
+
+            if current_function:
+                test_functions.append('\n'.join(current_function))
+
+            # Собираем финальный код
+            if test_functions:
+                test_code = f"""import pytest
+
+# Импортируем модуль для тестирования
+test_module = __import__('{module_name}')
+
+{chr(10).join(test_functions)}
+"""
+            else:
+                # Если не удалось извлечь функции, создаем базовый тест
+                test_code = f"""import pytest
+
+# Импортируем модуль для тестирования
+test_module = __import__('{module_name}')
+
+def test_module_import():
+    assert test_module is not None
+"""
+            
+            logger.info(f"Ollama Llama2:7b сгенерировал тесты: {test_code[:200]}...")
+            logger.info(f"Ollama API успешно сгенерировал тесты для {file_path}")
+            return test_code
+            
+        except Exception as e:
+            logger.error(f"Ошибка Ollama API при генерации тестов: {e}")
+            raise e
+
     def _generate_tests_with_claude(self, source_code: str, file_path: str) -> str:
         """Генерирует тесты используя Claude Haiku 3.5"""
         try:
@@ -472,11 +638,18 @@ def test_module_import():
 
 Сгенерируй тесты которые:
 1. Импортируют модуль как `test_module = __import__('{module_name}')`
-2. Тестируют все функции и классы
-3. Включают граничные случаи
-4. Используют pytest
-5. Обязательно используют `test_module.` для всех вызовов
-6. НЕ используют никакие другие имена модулей
+2. ПОКРЫВАЮТ ВСЕ ПУБЛИЧНЫЕ МЕТОДЫ И ГРАНИЧНЫЕ СЛУЧАИ
+3. Тестируют каждый метод с несколькими наборами входных данных
+4. Включают позитивные и негативные сценарии
+5. Тестируют граничные значения и исключения
+6. Добавляют тесты для валидации входных параметров
+7. Тестируют все ветки условных операторов
+8. Добавляют тесты для различных типов данных
+9. Тестируют взаимодействие между компонентами
+10. Тестируют состояния объектов до и после операций
+11. Используют pytest
+12. Обязательно используют `test_module.` для всех вызовов
+13. НЕ используют никакие другие имена модулей
 
 Верни только код тестов без дополнительных объяснений.
 """

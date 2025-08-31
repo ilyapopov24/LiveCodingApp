@@ -65,6 +65,10 @@
         "docker-mcp-reports-spaceweb:latest",
         "spaceweb"
       ]
+    },
+    "ollama": {
+      "command": "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/ollama_mcp.sh",
+      "args": []
     }
   }
 }

@@ -525,8 +525,101 @@ services:
     depends_on:
       - python-runner-http
 
+  # Ollama сервер для локальных LLM моделей (оптимизирован для Apple Silicon)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    restart: unless-stopped
+    ports:
+      - "11434:11434"  # Стандартный порт ollama
+    
+    # Volumes для моделей и данных
+    volumes:
+      - ollama_models:/root/.ollama
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Переменные окружения для оптимизации
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_GPU_LAYERS=35  # Используем GPU для большинства слоев
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов (оптимизировано для M1 Pro)
+    deploy:
+      resources:
+        limits:
+          memory: 12G  # Больше памяти для GPU операций
+          cpus: '6.0'  # Больше CPU для параллельной обработки
+        reservations:
+          memory: 8G
+          cpus: '4.0'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Ollama MCP сервер для Cursor
+  ollama-mcp:
+    build: .
+    container_name: mcp-ollama
+    restart: unless-stopped
+    
+    # Volumes для доступа к файлам хоста
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Команда запуска Ollama MCP сервера
+    command: ["ollama-mcp"]
+
 networks:
   mcp-network:
 
 volumes:
   python_uploads:
+  ollama_models:
