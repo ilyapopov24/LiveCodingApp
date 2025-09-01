@@ -5,12 +5,26 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-01-27
 
 ### Added
+- **Chat History Persistence**: Implemented persistent storage of chat messages between app restarts
+  - Added `ChatMessageEntity` for Room database storage
+  - Created `ChatMessageDao` for database operations
+  - Updated `AppDatabase` to version 2 with chat_messages table
+  - Added `ChatMessageMapper` for data layer transformations
+  - Enhanced `ChatRepositoryImpl` with save/load functionality
+  - Updated `ChatViewModel` to load chat history on initialization
+  - Added "очисти чат" command to clear chat history
+  - Messages are now automatically saved to local database and restored on app restart
+
 - **Build Pipeline Integration**: Added new MCP tool `build-android-pipeline` to Python Runner MCP server
 - **Android Chat Command**: Added recognition of "собери пайплайн" command in Android chat
 - **GitHub Actions Integration**: MCP tool can trigger Android debug build workflow via GitHub API
 - **PyGithub Dependency**: Added PyGithub library for GitHub API integration
 
 ### Changed
+- **Database Schema**: Updated AppDatabase from version 1 to version 2 to include chat_messages table
+- **Database Migration**: Added MIGRATION_1_2 to safely upgrade existing databases
+- **ChatRepository Interface**: Extended with methods for persistent storage operations
+- **RoomModule**: Added ChatMessageDao and ChatMessageMapper dependencies
 - **Python Runner MCP Server**: Extended with build pipeline functionality
 - **ChatViewModel**: Added special command handling for build pipeline requests
 - **Docker Configuration**: Updated requirements.txt with PyGithub dependency

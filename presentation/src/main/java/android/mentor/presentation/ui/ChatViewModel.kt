@@ -7,6 +7,7 @@ import android.mentor.domain.entities.StartupDialogState
 import android.mentor.domain.usecases.SendChatMessageUseCase
 import android.mentor.domain.repository.GitHubActionsRepository
 import android.mentor.domain.usecases.TriggerAndroidDebugBuildUseCase
+import android.mentor.domain.repository.ChatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val triggerAndroidDebugBuildUseCase: TriggerAndroidDebugBuildUseCase
+    private val triggerAndroidDebugBuildUseCase: TriggerAndroidDebugBuildUseCase,
+    private val chatRepository: ChatRepository
 ) : ViewModel() {
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -36,44 +38,46 @@ class ChatViewModel @Inject constructor(
     private val _hasRecommendations = MutableStateFlow(false)
     val hasRecommendations: StateFlow<Boolean> = _hasRecommendations.asStateFlow()
 
+    init {
+        loadChatHistory()
+    }
+
+    private fun loadChatHistory() {
+        viewModelScope.launch {
+            chatRepository.getAllMessages().collect { messages ->
+                _chatMessages.value = messages
+            }
+        }
+    }
+
     fun sendMessage(message: String) {
         if (message.isBlank()) return
-        
-        // Добавляем сообщение пользователя в список
-        val userMessage = ChatMessage(
-            id = System.currentTimeMillis().toString(),
-            content = message,
-            isUser = true,
-            timestamp = System.currentTimeMillis()
-        )
-        _chatMessages.value = _chatMessages.value + userMessage
         
         // Проверяем специальные команды
         when {
             message.lowercase().contains("собери пайплайн") -> {
                 handleBuildPipelineCommand()
+                return
             }
-            else -> {
-                // Обычная обработка сообщения
-                viewModelScope.launch {
-                    _isLoading.value = true
-                    try {
-                        val response = sendChatMessageUseCase(message)
-                        
-                        // Проверяем, нужно ли очистить чат
-                        if (response.shouldClearChat) {
-                            // Очищаем чат и добавляем только сообщение от второго агента
-                            _chatMessages.value = listOf(response)
-                        } else {
-                            // Добавляем сообщение к существующему чату
-                            _chatMessages.value = _chatMessages.value + response
-                        }
-                    } catch (e: Exception) {
-                        // Ошибка уже обрабатывается в репозитории
-                    } finally {
-                        _isLoading.value = false
-                    }
-                }
+            message.lowercase().contains("очисти чат") || 
+            message.lowercase().contains("очистить чат") ||
+            message.lowercase().contains("clear chat") ||
+            message.lowercase().contains("очисти") -> {
+                clearChat()
+                return
+            }
+        }
+        
+        // Отправляем сообщение и получаем ответ
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                sendChatMessageUseCase(message)
+                // Все сообщения (пользователя и бота) сохраняются в репозитории
+            } catch (e: Exception) {
+                // Обработка ошибок уже реализована в репозитории
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -87,10 +91,11 @@ class ChatViewModel @Inject constructor(
             timestamp = System.currentTimeMillis(),
             model = "build-system"
         )
-        _chatMessages.value = _chatMessages.value + buildMessage
         
-        // Вызываем GitHub Actions API напрямую
+        // Сохраняем сообщение в базу данных
         viewModelScope.launch {
+            chatRepository.saveMessage(buildMessage)
+            
             try {
                 val result = triggerAndroidDebugBuildUseCase()
                 
@@ -101,7 +106,7 @@ class ChatViewModel @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                     model = "build-system"
                 )
-                _chatMessages.value = _chatMessages.value + resultMessage
+                chatRepository.saveMessage(resultMessage)
             } catch (e: Exception) {
                 val errorMessage = ChatMessage(
                     id = System.currentTimeMillis().toString(),
@@ -110,13 +115,21 @@ class ChatViewModel @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                     model = "build-system"
                 )
-                _chatMessages.value = _chatMessages.value + errorMessage
+                chatRepository.saveMessage(errorMessage)
             }
         }
     }
 
+    private fun clearChat() {
+        viewModelScope.launch {
+            chatRepository.clearAllMessages()
+        }
+    }
+
     fun clearChatHistory() {
-        _chatMessages.value = emptyList()
+        viewModelScope.launch {
+            chatRepository.clearAllMessages()
+        }
     }
 
     fun cancelStartupDialog() {
@@ -129,6 +142,8 @@ class ChatViewModel @Inject constructor(
             timestamp = System.currentTimeMillis(),
             model = "system"
         )
-        _chatMessages.value = _chatMessages.value + cancelMessage
+        viewModelScope.launch {
+            chatRepository.saveMessage(cancelMessage)
+        }
     }
 }

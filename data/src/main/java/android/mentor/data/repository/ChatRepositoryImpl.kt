@@ -13,15 +13,21 @@ import android.mentor.domain.entities.ChatMessage
 import android.mentor.domain.entities.StartupDialogState
 import android.mentor.domain.entities.AnswerAnalysis
 import android.mentor.domain.repository.ChatRepository
+import android.mentor.data.cache.room.ChatMessageDao
+import android.mentor.data.mappers.ChatMessageMapper
 import android.util.Log
 import java.util.UUID
 import javax.inject.Inject
 import org.json.JSONObject
 import org.json.JSONException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class ChatRepositoryImpl @Inject constructor(
     private val chatApi: ChatApi,
-    private val propertiesReader: PropertiesReader
+    private val propertiesReader: PropertiesReader,
+    private val chatMessageDao: ChatMessageDao,
+    private val chatMessageMapper: ChatMessageMapper
 ) : ChatRepository {
 
     private var startupDialogState: StartupDialogState = StartupDialogState()
@@ -37,72 +43,49 @@ class ChatRepositoryImpl @Inject constructor(
     )
 
     override suspend fun sendMessage(message: String): ChatMessage {
-        try {
-            // Проверяем, является ли это началом диалога о стартапе
-            if (!startupDialogState.isActive && isStartupRelated(message)) {
-                startupDialogState = StartupDialogState(
-                    isActive = true,
-                    currentStep = 0,
-                    currentTopic = "idea",
-                    originalQuestion = message
-                )
-                return createStartupQuestion("idea")
-            }
+        // Сохраняем сообщение пользователя в базу данных
+        val userMessage = ChatMessage(
+            id = System.currentTimeMillis().toString(),
+            content = message,
+            isUser = true,
+            timestamp = System.currentTimeMillis()
+        )
+        saveMessage(userMessage)
+        
+        // Проверяем, является ли это началом диалога о стартапе
+        if (!startupDialogState.isActive && isStartupRelated(message)) {
+            startupDialogState = StartupDialogState(
+                isActive = true,
+                currentStep = 0,
+                currentTopic = "idea",
+                originalQuestion = message
+            )
+            val startupMessage = createStartupQuestion("idea")
+            saveMessage(startupMessage)
+            return startupMessage
+        }
 
-            // Если диалог активен, добавляем ответ и продолжаем
-            if (startupDialogState.isActive) {
-                return handleStartupDialog(message)
-            }
+        // Если диалог активен, добавляем ответ и продолжаем
+        if (startupDialogState.isActive) {
+            val startupMessage = handleStartupDialog(message)
+            saveMessage(startupMessage)
+            return startupMessage
+        }
 
-            // Обычный режим - отправляем запрос к OpenAI с system prompt для JSON
-            val apiKey = propertiesReader.getGptApiKey()
-            Log.d("ChatRepository", "API Key: '${apiKey.take(10)}...' (length: ${apiKey.length})")
-            
-            // Используем новый метод с system prompt
+        // Обычный режим - отправляем запрос к OpenAI с system prompt для JSON
+        val apiKey = propertiesReader.getGptApiKey()
+        Log.d("ChatRepository", "API Key: '${apiKey.take(10)}...' (length: ${apiKey.length})")
+        
+        val response = try {
             val request = ChatRequest.createWithSystemPrompt(message)
-            
-            val response = chatApi.sendMessage("Bearer $apiKey", request)
-            
-            val responseContent = response.choices.firstOrNull()?.message?.content ?: "Извините, не удалось получить ответ"
-            
-            // Валидируем JSON ответ
-            val isValidJson = try {
-                JSONObject(responseContent)
-                true
-            } catch (e: JSONException) {
-                Log.w("ChatRepository", "Response is not valid JSON: $responseContent")
-                false
-            }
-            
-            val assistantMessage = if (isValidJson) {
-                // Парсим JSON и создаем красивое отображение
-                val jsonData = JsonResponseParser.parseResponse(responseContent)
-                val formattedContent = formatJsonResponse(jsonData)
-                
-                ChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = formattedContent,
-                    isUser = false,
-                    timestamp = System.currentTimeMillis(),
-                    model = "gpt-3.5-turbo"
-                )
-            } else {
-                ChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = "⚠️ Ответ не в JSON формате:\n$responseContent",
-                    isUser = false,
-                    timestamp = System.currentTimeMillis(),
-                    model = "gpt-3.5-turbo"
-                )
-            }
-            
-            return assistantMessage
+            chatApi.sendMessage("Bearer $apiKey", request)
         } catch (e: Exception) {
-            // В случае ошибки создаем сообщение об ошибке
+            Log.e("ChatRepositoryImpl", "Error sending message to API", e)
+            // Возвращаем сообщение об ошибке
             val errorMessage = when {
                 e.message?.contains("429") == true -> {
                     ChatMessage(
-                        id = UUID.randomUUID().toString(),
+                        id = System.currentTimeMillis().toString(),
                         content = "Слишком много запросов. Подождите немного и попробуйте снова.",
                         isUser = false,
                         timestamp = System.currentTimeMillis(),
@@ -111,7 +94,7 @@ class ChatRepositoryImpl @Inject constructor(
                 }
                 e.message?.contains("401") == true -> {
                     ChatMessage(
-                        id = UUID.randomUUID().toString(),
+                        id = System.currentTimeMillis().toString(),
                         content = "Ошибка авторизации. Проверьте API ключ.",
                         isUser = false,
                         timestamp = System.currentTimeMillis(),
@@ -120,7 +103,7 @@ class ChatRepositoryImpl @Inject constructor(
                 }
                 e.message?.contains("unsupported_country_region_territory") == true -> {
                     ChatMessage(
-                        id = UUID.randomUUID().toString(),
+                        id = System.currentTimeMillis().toString(),
                         content = "⚠️ OpenAI API не поддерживается в вашем регионе. Используйте VPN или альтернативный API.",
                         isUser = false,
                         timestamp = System.currentTimeMillis(),
@@ -129,7 +112,7 @@ class ChatRepositoryImpl @Inject constructor(
                 }
                 else -> {
                     ChatMessage(
-                        id = UUID.randomUUID().toString(),
+                        id = System.currentTimeMillis().toString(),
                         content = "Извините, произошла ошибка: ${e.message}",
                         isUser = false,
                         timestamp = System.currentTimeMillis(),
@@ -137,9 +120,72 @@ class ChatRepositoryImpl @Inject constructor(
                     )
                 }
             }
-            
+            saveMessage(errorMessage)
             return errorMessage
         }
+
+        // Парсим ответ и создаем сообщение бота
+        val responseContent = response.choices.firstOrNull()?.message?.content ?: "Извините, не удалось получить ответ"
+        
+        // Валидируем JSON ответ
+        val isValidJson = try {
+            JSONObject(responseContent)
+            true
+        } catch (e: JSONException) {
+            Log.w("ChatRepository", "Response is not valid JSON: $responseContent")
+            false
+        }
+        
+        val botMessage = if (isValidJson) {
+            // Парсим JSON и создаем красивое отображение
+            val jsonData = JsonResponseParser.parseResponse(responseContent)
+            val formattedContent = formatJsonResponse(jsonData)
+            
+            ChatMessage(
+                id = UUID.randomUUID().toString(),
+                content = formattedContent,
+                isUser = false,
+                timestamp = System.currentTimeMillis(),
+                model = "gpt-3.5-turbo"
+            )
+        } else {
+            ChatMessage(
+                id = UUID.randomUUID().toString(),
+                content = "⚠️ Ответ не в JSON формате:\n$responseContent",
+                isUser = false,
+                timestamp = System.currentTimeMillis(),
+                model = "gpt-3.5-turbo"
+            )
+        }
+        
+        // Сохраняем ответ бота в базу данных
+        saveMessage(botMessage)
+        
+        return botMessage
+    }
+
+    override fun getAllMessages(): Flow<List<ChatMessage>> {
+        return chatMessageDao.getAllMessages().map { entities ->
+            entities.map { chatMessageMapper.toEntity(it) }
+        }
+    }
+
+    override suspend fun saveMessage(message: ChatMessage) {
+        val entity = chatMessageMapper.toDBModel(message)
+        chatMessageDao.insertMessage(entity)
+    }
+
+    override suspend fun saveMessages(messages: List<ChatMessage>) {
+        val entities = messages.map { chatMessageMapper.toDBModel(it) }
+        chatMessageDao.insertMessages(entities)
+    }
+
+    override suspend fun clearAllMessages() {
+        chatMessageDao.clearAllMessages()
+    }
+
+    override suspend fun getMessageCount(): Int {
+        return chatMessageDao.getMessageCount()
     }
 
     private fun isStartupRelated(message: String): Boolean {
