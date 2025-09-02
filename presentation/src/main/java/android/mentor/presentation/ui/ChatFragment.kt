@@ -15,7 +15,10 @@ import kotlinx.coroutines.launch
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.mentor.domain.entities.ChatMessage
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
 @AndroidEntryPoint
@@ -26,6 +29,17 @@ class ChatFragment : Fragment() {
     
     private val viewModel: ChatViewModel by viewModels()
     private lateinit var chatAdapter: ChatAdapter
+    
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(context, "Разрешение на запись аудио предоставлено", Toast.LENGTH_SHORT).show()
+            viewModel.startVoiceInput()
+        } else {
+            Toast.makeText(context, "Разрешение на запись аудио отклонено", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,6 +61,10 @@ class ChatFragment : Fragment() {
         chatAdapter = ChatAdapter().apply {
             setOnItemLongClickListener { message ->
                 handleLongClick(message)
+            }
+            setOnSpeakClickListener { message ->
+                Toast.makeText(context, "Кнопка нажата!", Toast.LENGTH_SHORT).show()
+                viewModel.speakMessage(message)
             }
         }
         binding.recyclerViewChat.apply {
@@ -88,6 +106,10 @@ class ChatFragment : Fragment() {
                 viewModel.sendMessage(message)
                 binding.editTextMessage.text.clear()
             }
+        }
+
+        binding.buttonVoice.setOnClickListener {
+            checkAndRequestAudioPermission()
         }
 
         binding.buttonClear.setOnClickListener {
@@ -134,6 +156,22 @@ class ChatFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+    
+    private fun checkAndRequestAudioPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // Разрешение уже предоставлено
+                viewModel.startVoiceInput()
+            }
+            else -> {
+                // Запросить разрешение
+                requestPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
+        }
     }
 
     private fun updateDialogUI(dialogState: android.mentor.domain.entities.StartupDialogState) {

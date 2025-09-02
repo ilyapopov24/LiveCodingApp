@@ -8,6 +8,7 @@ import android.mentor.domain.usecases.SendChatMessageUseCase
 import android.mentor.domain.repository.GitHubActionsRepository
 import android.mentor.domain.usecases.TriggerAndroidDebugBuildUseCase
 import android.mentor.domain.repository.ChatRepository
+import android.mentor.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,8 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val triggerAndroidDebugBuildUseCase: TriggerAndroidDebugBuildUseCase,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -145,5 +147,24 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.saveMessage(cancelMessage)
         }
+    }
+
+    fun startVoiceInput() {
+        viewModelScope.launch {
+            val voiceText = voiceRepository.startVoiceInput()
+            if (!voiceText.isNullOrBlank()) {
+                sendMessage(voiceText)
+            }
+        }
+    }
+
+    fun speakMessage(message: ChatMessage) {
+        if (!message.isUser) {
+            voiceRepository.speakText(message.content)
+        }
+    }
+
+    fun stopSpeaking() {
+        voiceRepository.stopSpeaking()
     }
 }

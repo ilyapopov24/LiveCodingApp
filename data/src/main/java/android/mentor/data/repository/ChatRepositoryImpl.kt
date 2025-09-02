@@ -75,9 +75,11 @@ class ChatRepositoryImpl @Inject constructor(
         // Обычный режим - отправляем запрос к OpenAI с system prompt для JSON
         val apiKey = propertiesReader.getGptApiKey()
         Log.d("ChatRepository", "API Key: '${apiKey.take(10)}...' (length: ${apiKey.length})")
+        Log.d("ChatRepository", "Full API Key: '$apiKey'")
         
         val response = try {
             val request = ChatRequest.createWithSystemPrompt(message)
+            Log.d("ChatRepository", "Sending request with Authorization header: 'Bearer $apiKey'")
             chatApi.sendMessage("Bearer $apiKey", request)
         } catch (e: Exception) {
             Log.e("ChatRepositoryImpl", "Error sending message to API", e)
@@ -96,6 +98,15 @@ class ChatRepositoryImpl @Inject constructor(
                     ChatMessage(
                         id = System.currentTimeMillis().toString(),
                         content = "Ошибка авторизации. Проверьте API ключ.",
+                        isUser = false,
+                        timestamp = System.currentTimeMillis(),
+                        model = null
+                    )
+                }
+                e.message?.contains("403") == true -> {
+                    ChatMessage(
+                        id = System.currentTimeMillis().toString(),
+                        content = "Доступ запрещен (403). Возможно, API ключ заблокирован или истек. Проверьте статус аккаунта OpenAI.",
                         isUser = false,
                         timestamp = System.currentTimeMillis(),
                         model = null

@@ -6,6 +6,8 @@ import android.mentor.data.cache.room.CharactersDao
 import android.mentor.data.cache.room.ChatMessageDao
 import android.mentor.data.mappers.ChatMessageMapper
 import android.mentor.data.mappers.ChatMessageMapperImpl
+import android.mentor.data.repository.VoiceRepositoryImpl
+import android.mentor.domain.repository.VoiceRepository
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -64,4 +66,10 @@ object RoomModule {
     @Provides
     @Singleton
     fun provideChatMessageMapper(): ChatMessageMapper = ChatMessageMapperImpl()
+
+    @Provides
+    @Singleton
+    fun provideVoiceRepository(
+        @ApplicationContext context: Context
+    ): VoiceRepository = VoiceRepositoryImpl(context)
 }

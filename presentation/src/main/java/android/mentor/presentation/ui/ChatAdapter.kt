@@ -21,9 +21,14 @@ import org.json.JSONException
 class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDiffCallback()) {
 
     private var onItemLongClickListener: ((ChatMessage) -> Unit)? = null
+    private var onSpeakClickListener: ((ChatMessage) -> Unit)? = null
 
     fun setOnItemLongClickListener(listener: (ChatMessage) -> Unit) {
         onItemLongClickListener = listener
+    }
+
+    fun setOnSpeakClickListener(listener: (ChatMessage) -> Unit) {
+        onSpeakClickListener = listener
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
@@ -32,7 +37,7 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
             parent,
             false
         )
-        return ChatViewHolder(binding, onItemLongClickListener)
+        return ChatViewHolder(binding, onItemLongClickListener, onSpeakClickListener)
     }
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int): Unit {
@@ -41,7 +46,8 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
 
     class ChatViewHolder(
         private val binding: ItemChatMessageBinding,
-        private val onItemLongClickListener: ((ChatMessage) -> Unit)?
+        private val onItemLongClickListener: ((ChatMessage) -> Unit)?,
+        private val onSpeakClickListener: ((ChatMessage) -> Unit)?
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -65,6 +71,9 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
                     params.marginStart = 120 // 120dp в пикселях
                     params.marginEnd = 0
                     constraintLayoutMessage.layoutParams = params
+                    
+                    // Скрываем кнопку воспроизведения для сообщений пользователя
+                    buttonSpeak.visibility = View.GONE
                 } else {
                     // Сообщение бота - слева
                     constraintLayoutMessage.setBackgroundResource(android.R.color.darker_gray)
@@ -76,6 +85,12 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(ChatDif
                     params.marginStart = 0
                     params.marginEnd = 120 // 120dp в пикселях
                     constraintLayoutMessage.layoutParams = params
+                    
+                    // Показываем кнопку воспроизведения для сообщений бота
+                    buttonSpeak.visibility = View.VISIBLE
+                    buttonSpeak.setOnClickListener {
+                        onSpeakClickListener?.invoke(message)
+                    }
                 }
                 
                 // Добавляем обработчик длительного нажатия

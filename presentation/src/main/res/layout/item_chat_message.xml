@@ -41,8 +41,22 @@
             android:text="12:34"
             android:textColor="@android:color/white"
             android:textSize="12sp"
+            app:layout_constraintEnd_toStartOf="@+id/buttonSpeak"
+            app:layout_constraintTop_toBottomOf="@+id/textMessage" />
+
+        <ImageButton
+            android:id="@+id/buttonSpeak"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="@android:drawable/btn_default"
+            android:src="@android:drawable/ic_media_play"
+            android:backgroundTint="@android:color/holo_blue_light"
+            android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/textMessage" />
+
+
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

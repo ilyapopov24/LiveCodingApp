@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-01-27
 
 ### Added
+- **Voice Input/Output**: Implemented voice recognition and text-to-speech functionality in chat
+  - Added `VoiceRepository` interface and `VoiceRepositoryImpl` implementation
+  - Integrated Android `SpeechRecognizer` for voice-to-text conversion
+  - Integrated Android `TextToSpeech` for text-to-speech synthesis
+  - Redesigned chat input layout: text field separate from buttons
+  - Added "🎤 Голос" button for voice input (larger, more visible)
+  - Added large green speaker button (🔊) for each bot message to play audio
+  - Added `RECORD_AUDIO` permission for voice recording
+  - Voice input automatically converts speech to text and sends as message
+  - Voice output plays bot responses using device TTS engine
+
 - **Chat History Persistence**: Implemented persistent storage of chat messages between app restarts
   - Added `ChatMessageEntity` for Room database storage
   - Created `ChatMessageDao` for database operations
