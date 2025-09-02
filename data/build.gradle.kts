@@ -18,6 +18,7 @@ android {
         buildConfigField("String", "GPT_API_KEY", "\"${project.findProperty("GPT_API_KEY") ?: ""}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${project.findProperty("GEMINI_API_KEY") ?: ""}\"")
         buildConfigField("String", "GITHUB_TOKEN", "\"${project.findProperty("GITHUB_TOKEN") ?: ""}\"")
+        buildConfigField("String", "GOOGLE_CLOUD_SPEECH_API_KEY", "\"${project.findProperty("GOOGLE_CLOUD_SPEECH_API_KEY") ?: ""}\"")
     }
 
     buildTypes {
@@ -84,4 +85,9 @@ dependencies {
     
     // WebSocket для MCP соединения
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
+    
+    // Google Cloud Speech-to-Text API
+    implementation("com.google.cloud:google-cloud-speech:4.0.0")
+    implementation("io.grpc:grpc-okhttp:1.58.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
 }

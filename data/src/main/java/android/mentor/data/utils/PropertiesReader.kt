@@ -18,4 +18,12 @@ class PropertiesReader @Inject constructor() {
             throw IllegalStateException("GPT_API_KEY not found in BuildConfig")
         }
     }
+    
+    fun getGoogleCloudSpeechApiKey(): String {
+        return if (BuildConfig.GOOGLE_CLOUD_SPEECH_API_KEY.isNotEmpty()) {
+            BuildConfig.GOOGLE_CLOUD_SPEECH_API_KEY
+        } else {
+            throw IllegalStateException("GOOGLE_CLOUD_SPEECH_API_KEY not found in BuildConfig")
+        }
+    }
 }

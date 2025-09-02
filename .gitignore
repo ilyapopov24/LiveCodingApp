@@ -21,3 +21,6 @@ venv_neural2/
 
 # Gradle properties with sensitive data
 gradle.properties
+
+# Google Cloud credentials
+data/src/main/assets/google_cloud_credentials.json

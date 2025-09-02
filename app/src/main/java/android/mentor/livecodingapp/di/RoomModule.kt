@@ -6,6 +6,8 @@ import android.mentor.data.cache.room.CharactersDao
 import android.mentor.data.cache.room.ChatMessageDao
 import android.mentor.data.mappers.ChatMessageMapper
 import android.mentor.data.mappers.ChatMessageMapperImpl
+import android.mentor.data.repository.AudioRecorder
+import android.mentor.data.repository.GoogleCloudSpeechRepository
 import android.mentor.data.repository.VoiceRepositoryImpl
 import android.mentor.domain.repository.VoiceRepository
 import androidx.room.Room
@@ -70,6 +72,8 @@ object RoomModule {
     @Provides
     @Singleton
     fun provideVoiceRepository(
-        @ApplicationContext context: Context
-    ): VoiceRepository = VoiceRepositoryImpl(context)
+        @ApplicationContext context: Context,
+        googleCloudSpeechRepository: GoogleCloudSpeechRepository,
+        audioRecorder: AudioRecorder
+    ): VoiceRepository = VoiceRepositoryImpl(context, googleCloudSpeechRepository, audioRecorder)
 }

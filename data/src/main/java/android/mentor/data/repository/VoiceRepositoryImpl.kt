@@ -15,7 +15,9 @@ import kotlin.coroutines.resume
 
 @Singleton
 class VoiceRepositoryImpl @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val googleCloudSpeechRepository: GoogleCloudSpeechRepository,
+    private val audioRecorder: AudioRecorder
 ) : VoiceRepository, TextToSpeech.OnInitListener {
 
     private var textToSpeech: TextToSpeech? = null
@@ -25,7 +27,27 @@ class VoiceRepositoryImpl @Inject constructor(
         textToSpeech = TextToSpeech(context, this)
     }
 
-    override suspend fun startVoiceInput(): String? = suspendCancellableCoroutine { continuation ->
+    override suspend fun startVoiceInput(): String? {
+        // Сначала пробуем Google Cloud API
+        return try {
+            Log.d("VoiceRepository", "Trying Google Cloud Speech API")
+            val audioData = audioRecorder.startRecording()
+            if (audioData.isNotEmpty()) {
+                val result = googleCloudSpeechRepository.recognizeSpeech(audioData)
+                if (!result.isNullOrBlank()) {
+                    Log.d("VoiceRepository", "Google Cloud recognition successful: $result")
+                    return result
+                }
+            }
+            Log.w("VoiceRepository", "Google Cloud recognition failed, falling back to local")
+            startLocalVoiceInput()
+        } catch (e: Exception) {
+            Log.e("VoiceRepository", "Google Cloud recognition error, falling back to local", e)
+            startLocalVoiceInput()
+        }
+    }
+    
+    private suspend fun startLocalVoiceInput(): String? = suspendCancellableCoroutine { continuation ->
         Log.d("VoiceRepository", "startVoiceInput called")
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             Log.e("VoiceRepository", "Speech recognition not available")
@@ -34,8 +56,6 @@ class VoiceRepositoryImpl @Inject constructor(
             return@suspendCancellableCoroutine
         }
         Log.d("VoiceRepository", "Speech recognition available, starting...")
-
-
 
         val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
         var lastPartialResult: String? = null
