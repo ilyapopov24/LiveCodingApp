@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-01-27
 
 ### Added
+- **Sequential Thinking MCP Server**: Создан упрощенный MCP сервер для последовательного мышления
+  - Реализована цепочка: мысль → проверка → ответ
+  - Python-based MCP сервер с STDIO интерфейсом
+  - Автоматический анализ мыслей и результатов проверки
+  - Сохранение истории всего процесса мышления
+  - Docker контейнеризация для легкого развертывания
+  - Полная документация и примеры использования
+  - Тестовый набор для проверки функциональности
+  - **ПОЛНОСТЬЮ ПРОТЕСТИРОВАН И ИНТЕГРИРОВАН В CURSOR IDE**
 - **Voice Input/Output**: Implemented voice recognition and text-to-speech functionality in chat
   - Added `VoiceRepository` interface and `VoiceRepositoryImpl` implementation
   - Integrated Android `SpeechRecognizer` for voice-to-text conversion

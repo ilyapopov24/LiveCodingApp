@@ -1,0 +1,21 @@
+# Используем Python образ
+FROM python:3.11-slim
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем файлы проекта
+COPY src/sequential_thinking_mcp_server.py .
+COPY src/sequential_thinking_stdio_server.py .
+
+# Устанавливаем переменные окружения
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Запускаем сервер
+CMD ["python3", "sequential_thinking_stdio_server.py"]

@@ -69,6 +69,17 @@
     "ollama": {
       "command": "/Users/ilyapopov/Downloads/LiveCodingApp/docker-mcp-reports/ollama_mcp.sh",
       "args": []
+    },
+    "sequential-thinking": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        "mcp-sequential-thinking-cursor",
+        "sequential-thinking-mcp:latest"
+      ]
     }
   }
 }
