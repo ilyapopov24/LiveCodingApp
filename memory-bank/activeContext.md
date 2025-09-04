@@ -98,6 +98,7 @@ Establishing a solid foundation for the LiveCodingApp by implementing core archi
 - **Build System**: Gradle with Kotlin DSL
 - **Dependencies**: Modern Android libraries and architecture components
 - **Project Structure**: Clean, modular organization
+- **Auth Server**: FastAPI + Docker + Localtunnel (НЕ Cloudflare)
 
 ### **Development Workflow**
 - **Version Control**: Git repository established

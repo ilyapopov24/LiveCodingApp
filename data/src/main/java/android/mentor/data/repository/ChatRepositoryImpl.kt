@@ -13,6 +13,7 @@ import android.mentor.domain.entities.ChatMessage
 import android.mentor.domain.entities.StartupDialogState
 import android.mentor.domain.entities.AnswerAnalysis
 import android.mentor.domain.repository.ChatRepository
+import android.mentor.domain.repository.AuthRepository
 import android.mentor.data.cache.room.ChatMessageDao
 import android.mentor.data.mappers.ChatMessageMapper
 import android.util.Log
@@ -27,7 +28,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val chatApi: ChatApi,
     private val propertiesReader: PropertiesReader,
     private val chatMessageDao: ChatMessageDao,
-    private val chatMessageMapper: ChatMessageMapper
+    private val chatMessageMapper: ChatMessageMapper,
+    private val authRepository: AuthRepository
 ) : ChatRepository {
 
     private var startupDialogState: StartupDialogState = StartupDialogState()
@@ -43,7 +45,7 @@ class ChatRepositoryImpl @Inject constructor(
     )
 
     override suspend fun sendMessage(message: String): ChatMessage {
-        // Сохраняем сообщение пользователя в базу данных
+        // Сначала сохраняем сообщение пользователя в базу данных
         val userMessage = ChatMessage(
             id = System.currentTimeMillis().toString(),
             content = message,
@@ -51,6 +53,29 @@ class ChatRepositoryImpl @Inject constructor(
             timestamp = System.currentTimeMillis()
         )
         saveMessage(userMessage)
+        
+        // Теперь проверяем лимит
+        val usageResult = authRepository.getTokenUsage()
+        if (usageResult.isSuccess) {
+            val usage = usageResult.getOrNull()
+            val remainingTokens = usage?.remainingTokens
+            if (usage != null && usage.dailyLimit != null && remainingTokens != null && remainingTokens < 0) {
+                Log.w("ChatRepository", "Token limit already exceeded: ${usage.usedTokens}/${usage.dailyLimit}")
+                
+                val limitExceededMessage = ChatMessage(
+                    id = System.currentTimeMillis().toString(),
+                    content = "❌ **Дневной лимит токенов исчерпан!**\n\n" +
+                            "📊 **Текущее использование:** ${usage.usedTokens} / ${usage.dailyLimit} токенов\n" +
+                            "📈 **Остаток:** $remainingTokens токенов\n\n" +
+                            "⏰ Попробуйте завтра или обратитесь к администратору для сброса лимита.",
+                    isUser = false,
+                    timestamp = System.currentTimeMillis(),
+                    model = "system"
+                )
+                saveMessage(limitExceededMessage)
+                return limitExceededMessage
+            }
+        }
         
         // Проверяем, является ли это началом диалога о стартапе
         if (!startupDialogState.isActive && isStartupRelated(message)) {
@@ -71,6 +96,9 @@ class ChatRepositoryImpl @Inject constructor(
             saveMessage(startupMessage)
             return startupMessage
         }
+
+        // Убираем проверку лимита - она неточная и бесполезная
+        Log.d("ChatRepository", "Sending message without token limit check")
 
         // Обычный режим - отправляем запрос к OpenAI с system prompt для JSON
         val apiKey = propertiesReader.getGptApiKey()
@@ -170,6 +198,44 @@ class ChatRepositoryImpl @Inject constructor(
         
         // Сохраняем ответ бота в базу данных
         saveMessage(botMessage)
+        
+        // Обновляем счетчик токенов
+        try {
+            val actualTokens = response.usage?.total_tokens ?: 0
+            Log.d("ChatRepository", "Updating token usage: $actualTokens tokens")
+            val updateResult = authRepository.updateTokenUsage(actualTokens)
+            if (updateResult.isSuccess) {
+                Log.d("ChatRepository", "Successfully updated token usage: $actualTokens tokens")
+                
+                // Проверяем лимит ПОСЛЕ обновления
+                val usageResult = authRepository.getTokenUsage()
+                if (usageResult.isSuccess) {
+                    val usage = usageResult.getOrNull()
+                    val remainingTokens = usage?.remainingTokens
+                    if (usage != null && usage.dailyLimit != null && remainingTokens != null && remainingTokens < 0) {
+                        Log.w("ChatRepository", "Token limit exceeded after update: ${usage.usedTokens}/${usage.dailyLimit}")
+                        
+                        // Удаляем последнее сообщение и показываем ошибку
+                        val limitExceededMessage = ChatMessage(
+                            id = System.currentTimeMillis().toString(),
+                            content = "❌ **Дневной лимит токенов исчерпан!**\n\n" +
+                                    "📊 **Текущее использование:** ${usage.usedTokens} / ${usage.dailyLimit} токенов\n" +
+                                    "📈 **Остаток:** $remainingTokens токенов\n\n" +
+                                    "⏰ Попробуйте завтра или обратитесь к администратору для сброса лимита.",
+                            isUser = false,
+                            timestamp = System.currentTimeMillis(),
+                            model = "system"
+                        )
+                        saveMessage(limitExceededMessage)
+                        return limitExceededMessage
+                    }
+                }
+            } else {
+                Log.w("ChatRepository", "Failed to update token usage: ${updateResult.exceptionOrNull()?.message}")
+            }
+        } catch (e: Exception) {
+            Log.w("ChatRepository", "Exception updating token usage: ${e.message}")
+        }
         
         return botMessage
     }
