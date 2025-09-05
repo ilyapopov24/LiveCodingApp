@@ -13,6 +13,16 @@ data class LoginRequest(
     val password: String
 )
 
+data class UserProfile(
+    val name: String?,
+    val role: String?,
+    val experience: String?,
+    val blog: String?,
+    val goals: String?,
+    val specializations: List<String>?,
+    val interests: List<String>?
+)
+
 data class LoginResponse(
     @SerializedName("access_token")
     val accessToken: String?,
@@ -21,7 +31,9 @@ data class LoginResponse(
     @SerializedName("user_role")
     val userRole: String?,
     @SerializedName("daily_token_limit")
-    val dailyTokenLimit: Int?
+    val dailyTokenLimit: Int?,
+    @SerializedName("user_profile")
+    val userProfile: UserProfile?
 )
 
 data class TokenUsageResponse(

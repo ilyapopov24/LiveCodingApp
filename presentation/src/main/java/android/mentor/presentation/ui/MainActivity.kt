@@ -1,25 +1,28 @@
 package android.mentor.presentation.ui
 
 import android.content.Intent
-import android.mentor.domain.repository.AuthRepository
 import android.mentor.presentation.R
 import android.mentor.presentation.databinding.ActivityMainBinding
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
-import by.kirich1409.viewbindingdelegate.viewBinding
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
+import by.kirich1409.viewbindingdelegate.viewBinding
+import android.mentor.domain.repository.AuthRepository
+import android.mentor.domain.entities.UserProfile
+import android.mentor.data.auth.AuthManager
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private val vb by viewBinding<ActivityMainBinding>()
-    private val TAG = "MainActivity"
 
     @Inject
     lateinit var authRepository: AuthRepository
@@ -34,16 +37,13 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        // Проверяем авторизацию
         checkAuth()
     }
 
     private fun checkAuth() {
-        val isLoggedIn = authRepository.isLoggedIn()
-        Log.d(TAG, "checkAuth: User logged in: $isLoggedIn")
-        
-        if (!isLoggedIn) {
+        if (!authRepository.isLoggedIn()) {
             // Если не авторизован, переходим на экран входа
-            Log.d(TAG, "checkAuth: User not logged in, redirecting to LoginActivity")
             val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
             finish()
@@ -51,12 +51,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Если авторизован, настраиваем навигацию
-        Log.d(TAG, "checkAuth: User is logged in, setting up navigation")
         setupNavigation()
         setupLogoutButton()
+        loadUserProfile()
         
         // По умолчанию показываем экран персонажей
-        Log.d(TAG, "checkAuth: Loading CharactersListFragment")
         loadFragment(CharactersListFragment())
     }
 
@@ -90,6 +89,19 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
             finish()
+        }
+    }
+
+    private fun loadUserProfile() {
+        lifecycleScope.launch {
+            // Получаем профиль пользователя из AuthManager
+            val authManager = authRepository as? AuthManager
+            authManager?.userProfile?.collect { profile ->
+                profile?.let {
+                    // Обновляем заголовок с именем пользователя
+                    title = "Привет, ${it.name ?: "Пользователь"}!"
+                }
+            }
         }
     }
 

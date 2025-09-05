@@ -1,6 +1,7 @@
 package android.mentor.data.repository
 
 import android.mentor.data.api.ChatApi
+import android.mentor.data.auth.AuthManager
 import android.mentor.data.dto.ChatMessageDto
 import android.mentor.data.dto.ChatRequest
 import android.mentor.data.utils.PropertiesReader
@@ -100,14 +101,36 @@ class ChatRepositoryImpl @Inject constructor(
         // Убираем проверку лимита - она неточная и бесполезная
         Log.d("ChatRepository", "Sending message without token limit check")
 
-        // Обычный режим - отправляем запрос к OpenAI с system prompt для JSON
-        val apiKey = propertiesReader.getGptApiKey()
-        Log.d("ChatRepository", "API Key: '${apiKey.take(10)}...' (length: ${apiKey.length})")
-
         val response = try {
-            val request = ChatRequest.createWithSystemPrompt(message)
-            Log.d("ChatRepository", "Sending request")
-            chatApi.sendMessage("Bearer $apiKey", request)
+            // Получаем профиль пользователя для RAG персонализации
+            Log.d("ChatRepository", "authRepository type: ${authRepository::class.java.simpleName}")
+            Log.d("ChatRepository", "authRepository is AuthManager: ${authRepository is AuthManager}")
+            
+            val userProfile = if (authRepository is AuthManager) {
+                val profile = authRepository.userProfile.value
+                Log.d("ChatRepository", "userProfile from AuthManager: $profile")
+                profile
+            } else {
+                Log.d("ChatRepository", "authRepository is not AuthManager, userProfile = null")
+                null
+            }
+            
+            val request = if (userProfile != null) {
+                ChatRequest.createWithRAGPrompt(message, userProfile)
+            } else {
+                ChatRequest.createWithSystemPrompt(message)
+            }
+            
+            Log.d("ChatRepository", "Sending request with RAG: ${userProfile != null}")
+            
+            // Получаем JWT токен из AuthManager
+            val authManager = authRepository as? AuthManager
+            Log.d("ChatRepository", "authManager after cast: $authManager")
+            val jwtToken = authManager?.getStoredToken()
+            Log.d("ChatRepository", "jwtToken: ${jwtToken?.take(10)}...")
+                ?: throw Exception("No JWT token found. Please login first.")
+            
+            chatApi.sendMessage("Bearer $jwtToken", request)
         } catch (e: Exception) {
             Log.e("ChatRepositoryImpl", "Error sending message to API", e)
             // Возвращаем сообщение об ошибке
@@ -163,7 +186,7 @@ class ChatRepositoryImpl @Inject constructor(
         }
 
         // Парсим ответ и создаем сообщение бота
-        val responseContent = response.choices.firstOrNull()?.message?.content ?: "Извините, не удалось получить ответ"
+        val responseContent = response.response
         
         // Валидируем JSON ответ
         val isValidJson = try {
@@ -174,34 +197,20 @@ class ChatRepositoryImpl @Inject constructor(
             false
         }
         
-        val botMessage = if (isValidJson) {
-            // Парсим JSON и создаем красивое отображение
-            val jsonData = JsonResponseParser.parseResponse(responseContent)
-            val formattedContent = formatJsonResponse(jsonData)
-            
-            ChatMessage(
-                id = UUID.randomUUID().toString(),
-                content = formattedContent,
-                isUser = false,
-                timestamp = System.currentTimeMillis(),
-                model = "gpt-3.5-turbo"
-            )
-        } else {
-            ChatMessage(
-                id = UUID.randomUUID().toString(),
-                content = "⚠️ Ответ не в JSON формате:\n$responseContent",
-                isUser = false,
-                timestamp = System.currentTimeMillis(),
-                model = "gpt-3.5-turbo"
-            )
-        }
+        val botMessage = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            content = responseContent,
+            isUser = false,
+            timestamp = System.currentTimeMillis(),
+            model = "gpt-3.5-turbo"
+        )
         
         // Сохраняем ответ бота в базу данных
         saveMessage(botMessage)
         
         // Обновляем счетчик токенов
         try {
-            val actualTokens = response.usage?.total_tokens ?: 0
+            val actualTokens = response.tokens_used
             Log.d("ChatRepository", "Updating token usage: $actualTokens tokens")
             val updateResult = authRepository.updateTokenUsage(actualTokens)
             if (updateResult.isSuccess) {
@@ -417,14 +426,15 @@ class ChatRepositoryImpl @Inject constructor(
         
         // Используем существующий API метод, но с нашим запросом
         val chatRequest = ChatRequest(
-            model = request.model,
-            messages = request.messages,
-            max_tokens = request.max_tokens,
-            temperature = request.temperature
+            message = userAnswer
         )
-        val response = chatApi.sendMessage("Bearer $apiKey", chatRequest)
-        val responseContent = response.choices.firstOrNull()?.message?.content 
-            ?: throw Exception("Failed to get analysis response")
+        // Получаем JWT токен из AuthManager
+        val authManager = authRepository as? AuthManager
+        val jwtToken = authManager?.getStoredToken()
+            ?: throw Exception("No JWT token found. Please login first.")
+        
+        val response = chatApi.sendMessage("Bearer $jwtToken", chatRequest)
+        val responseContent = response.response
         
         // Парсим JSON ответ
         val jsonObject = JSONObject(responseContent)
@@ -500,8 +510,13 @@ class ChatRepositoryImpl @Inject constructor(
         }
 
         val request = ChatRequest.createWithSystemPrompt(summaryPrompt)
-        val response = chatApi.sendMessage("Bearer $apiKey", request)
-        val responseContent = response.choices.firstOrNull()?.message?.content ?: "Failed to generate summary"
+        // Получаем JWT токен из AuthManager
+        val authManager = authRepository as? AuthManager
+        val jwtToken = authManager?.getStoredToken()
+            ?: throw Exception("No JWT token found. Please login first.")
+        
+        val response = chatApi.sendMessage("Bearer $jwtToken", request)
+        val responseContent = response.response
 
         // Валидируем JSON ответ
         val isValidJson = try {
@@ -564,11 +579,16 @@ class ChatRepositoryImpl @Inject constructor(
             
             Log.d("ChatRepository", "Sending request to OpenAI (this may take up to 60 seconds)...")
             val startTime = System.currentTimeMillis()
-            val response = chatApi.getStartupRecommendations("Bearer $apiKey", request)
+            // Получаем JWT токен из AuthManager
+            val authManager = authRepository as? AuthManager
+            val jwtToken = authManager?.getStoredToken()
+                ?: throw Exception("No JWT token found. Please login first.")
+            
+            val response = chatApi.getStartupRecommendations("Bearer $jwtToken", request)
             val endTime = System.currentTimeMillis()
             Log.d("ChatRepository", "Received response from OpenAI in ${endTime - startTime}ms")
             
-            val responseContent = response.choices.firstOrNull()?.message?.content
+            val responseContent = response.response
             if (responseContent == null) {
                 Log.e("ChatRepository", "Response content is null")
                 return null

@@ -1,9 +1,9 @@
 package android.mentor.data.dto
 
 data class ChatResponse(
-    val id: String,
-    val choices: List<Choice>,
-    val usage: Usage
+    val response: String,
+    val tokens_used: Int,
+    val remaining_tokens: Int?
 )
 
 data class Choice(

@@ -10,24 +10,25 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface AuthApi {
-    @POST("auth/login")
+    @POST("login")
     suspend fun login(@Body request: LoginRequest): LoginResponse
 
-    @GET("auth/me")
-    suspend fun getCurrentUser(@Header("Authorization") token: String): Map<String, Any>
-
-    @GET("auth/token-usage")
+    @GET("token-usage")
     suspend fun getTokenUsage(@Header("Authorization") token: String): TokenUsageResponse
 
-    @POST("auth/check-limit")
-    suspend fun checkTokenLimit(
-        @Header("Authorization") token: String,
-        @Query("tokens_to_use") tokensToUse: Int
-    ): Map<String, String>
+    // TODO: Добавить эти эндпоинты на сервер
+    // @GET("auth/me")
+    // suspend fun getCurrentUser(@Header("Authorization") token: String): Map<String, Any>
 
-    @POST("auth/update-usage")
-    suspend fun updateTokenUsage(
-        @Header("Authorization") token: String,
-        @Query("tokens_used") tokensUsed: Int
-    ): Map<String, String>
+    // @POST("auth/check-limit")
+    // suspend fun checkTokenLimit(
+    //     @Header("Authorization") token: String,
+    //     @Query("tokens_to_use") tokensToUse: Int
+    // ): Map<String, String>
+
+    // @POST("auth/update-usage")
+    // suspend fun updateTokenUsage(
+    //     @Header("Authorization") token: String,
+    //     @Query("tokens_used") tokensUsed: Int
+    // ): Map<String, String>
 }

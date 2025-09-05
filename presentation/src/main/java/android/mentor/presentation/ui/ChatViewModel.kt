@@ -1,20 +1,21 @@
 package android.mentor.presentation.ui
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import android.mentor.data.auth.AuthManager
 import android.mentor.domain.entities.ChatMessage
 import android.mentor.domain.entities.StartupDialogState
-import android.mentor.domain.usecases.SendChatMessageUseCase
-import android.mentor.domain.repository.GitHubActionsRepository
-import android.mentor.domain.usecases.TriggerAndroidDebugBuildUseCase
+import android.mentor.domain.entities.UserProfile
+import android.mentor.domain.repository.AuthRepository
 import android.mentor.domain.repository.ChatRepository
 import android.mentor.domain.repository.VoiceRepository
+import android.mentor.domain.usecases.SendChatMessageUseCase
+import android.mentor.domain.usecases.TriggerAndroidDebugBuildUseCase
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,7 +23,8 @@ class ChatViewModel @Inject constructor(
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val triggerAndroidDebugBuildUseCase: TriggerAndroidDebugBuildUseCase,
     private val chatRepository: ChatRepository,
-    private val voiceRepository: VoiceRepository
+    private val voiceRepository: VoiceRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -40,14 +42,28 @@ class ChatViewModel @Inject constructor(
     private val _hasRecommendations = MutableStateFlow(false)
     val hasRecommendations: StateFlow<Boolean> = _hasRecommendations.asStateFlow()
 
+    private val _userProfile = MutableStateFlow<UserProfile?>(null)
+    val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+
     init {
         loadChatHistory()
+        loadUserProfile()
     }
 
     private fun loadChatHistory() {
         viewModelScope.launch {
             chatRepository.getAllMessages().collect { messages ->
                 _chatMessages.value = messages
+            }
+        }
+    }
+
+    private fun loadUserProfile() {
+        viewModelScope.launch {
+            // Получаем профиль пользователя из AuthManager
+            val authManager = authRepository as? AuthManager
+            authManager?.userProfile?.collect { profile ->
+                _userProfile.value = profile
             }
         }
     }

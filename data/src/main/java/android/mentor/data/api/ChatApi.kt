@@ -8,13 +8,13 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 
 interface ChatApi {
-    @POST("v1/chat/completions")
+    @POST("chat")
     suspend fun sendMessage(
         @Header("Authorization") apiKey: String,
         @Body request: ChatRequest
     ): ChatResponse
 
-    @POST("v1/chat/completions")
+    @POST("chat")
     suspend fun getStartupRecommendations(
         @Header("Authorization") apiKey: String,
         @Body request: StartupRecommendationsRequest

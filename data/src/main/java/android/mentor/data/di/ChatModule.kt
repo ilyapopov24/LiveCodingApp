@@ -28,7 +28,7 @@ abstract class ChatModule {
     abstract fun bindChatRepository(impl: ChatRepositoryImpl): ChatRepository
 
     @Binds
-    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+    abstract fun bindAuthRepository(impl: AuthManager): AuthRepository
 
     companion object {
         @Provides
