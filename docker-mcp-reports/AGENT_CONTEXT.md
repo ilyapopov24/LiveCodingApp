@@ -46,27 +46,6 @@
 
 ## 🔧 КЛЮЧЕВЫЕ ПАТТЕРНЫ
 
-### JSON Parsing Issue (КРИТИЧНО!)
-При работе с JSON API, которые используют snake_case (used_tokens, daily_limit, user_role) и Kotlin data classes с camelCase (usedTokens, dailyLimit, userRole), ВСЕГДА добавлять @SerializedName аннотации для маппинга полей.
-
-**Это частая ошибка, которая приводит к десериализации null значений вместо реальных данных из API.**
-
-**Пример:**
-```kotlin
-data class LoginResponse(
-    @SerializedName("access_token")
-    val accessToken: String?,
-    @SerializedName("token_type") 
-    val tokenType: String?,
-    @SerializedName("user_role")
-    val userRole: String?
-)
-```
-
-**Без аннотаций:** API возвращает `{"access_token":"abc"}`, но Gson десериализует в `LoginResponse(accessToken=null, tokenType=null, userRole=null)`
-
-**С аннотациями:** API возвращает `{"access_token":"abc"}`, Gson правильно десериализует в `LoginResponse(accessToken="abc", tokenType=null, userRole=null)`
-
 ### Docker конфигурация
 ```yaml
 # docker-compose.yml - ВСЕГДА включай:
