@@ -66,13 +66,9 @@ class LoginActivity : AppCompatActivity() {
 
                 result.fold(
                     onSuccess = { response ->
-                        val welcomeMessage = response.userProfile?.let { profile ->
-                            "Добро пожаловать, ${profile.name ?: response.userRole}!"
-                        } ?: "Добро пожаловать, ${response.userRole}!"
-                        
                         Toast.makeText(
                             this@LoginActivity,
-                            welcomeMessage,
+                            "Добро пожаловать, ${response.userRole}!",
                             Toast.LENGTH_SHORT
                         ).show()
                         

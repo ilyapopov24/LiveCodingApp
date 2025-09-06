@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import subprocess
+import glob
+import tiktoken
 from typing import Dict, Any, List
 
 import openai
@@ -89,6 +91,21 @@ class GitHubAIAdvisorMCPServer:
                         }
                     },
                     "required": ["username", "peer_usernames"]
+                }
+            },
+            "analyze_kotlin_code": {
+                "name": "analyze_kotlin_code",
+                "description": "Анализ Kotlin файлов в папке presentation и рекомендации по рефакторингу",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "focus_area": {
+                            "type": "string",
+                            "enum": ["architecture", "performance", "code_quality", "best_practices", "all"],
+                            "description": "Область фокуса анализа"
+                        }
+                    },
+                    "required": ["focus_area"]
                 }
             }
         }
@@ -180,6 +197,21 @@ class GitHubAIAdvisorMCPServer:
                     },
                     "required": ["username", "peer_usernames"]
                 }
+            },
+            {
+                "name": "analyze_kotlin_code",
+                "description": "Анализ Kotlin файлов в папке presentation и рекомендации по рефакторингу",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "focus_area": {
+                            "type": "string",
+                            "enum": ["architecture", "performance", "code_quality", "best_practices", "all"],
+                            "description": "Область фокуса анализа"
+                        }
+                    },
+                    "required": ["focus_area"]
+                }
             }
         ]
     
@@ -198,6 +230,8 @@ class GitHubAIAdvisorMCPServer:
                 result = self._generate_goals(arguments["username"], arguments["timeframe"])
             elif tool_name == "compare_with_peers":
                 result = self._compare_with_peers(arguments["username"], arguments["peer_usernames"])
+            elif tool_name == "analyze_kotlin_code":
+                result = self._analyze_kotlin_code(arguments["focus_area"])
             else:
                 raise ValueError(f"Неизвестный тулс: {tool_name}")
             
@@ -416,6 +450,196 @@ class GitHubAIAdvisorMCPServer:
         except Exception as e:
             logger.error(f"Ошибка при обращении к OpenAI API: {e}")
             return f"Ошибка при анализе через AI: {str(e)}"
+    
+    def _analyze_kotlin_code(self, focus_area: str) -> str:
+        """Анализ Kotlin файлов в папке presentation"""
+        logger.info(f"Начинаю анализ Kotlin кода с фокусом на: {focus_area}")
+        
+        try:
+            # Путь к папке presentation в контейнере
+            presentation_path = "/host/presentation/src/main/java/android/mentor/presentation/ui"
+            
+            # Проверяем существование папки
+            if not os.path.exists(presentation_path):
+                return f"❌ Папка {presentation_path} не найдена. Убедитесь, что volume mount настроен правильно."
+            
+            # Получаем все .kt файлы
+            kt_files = glob.glob(os.path.join(presentation_path, "*.kt"))
+            
+            if not kt_files:
+                return f"❌ В папке {presentation_path} не найдено .kt файлов."
+            
+            logger.info(f"Найдено {len(kt_files)} Kotlin файлов для анализа")
+            
+            # Читаем содержимое всех файлов
+            files_content = {}
+            for file_path in kt_files:
+                file_name = os.path.basename(file_path)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        files_content[file_name] = f.read()
+                    logger.info(f"✅ Прочитан файл: {file_name}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось прочитать {file_name}: {e}")
+                    files_content[file_name] = f"Ошибка чтения файла: {str(e)}"
+            
+            # Формируем данные для анализа
+            code_analysis = self._prepare_code_analysis(files_content, focus_area)
+            
+            # Создаем промпт для OpenAI
+            prompt = self._create_kotlin_analysis_prompt(code_analysis, focus_area)
+            
+            # Получаем анализ от OpenAI
+            return self._get_openai_analysis(prompt)
+            
+        except Exception as e:
+            logger.error(f"Ошибка при анализе Kotlin кода: {e}")
+            return f"❌ Ошибка при анализе Kotlin кода: {str(e)}"
+    
+    def _prepare_code_analysis(self, files_content: Dict[str, str], focus_area: str) -> str:
+        """Подготавливает данные кода для анализа с умной фильтрацией по лимиту токенов"""
+        analysis = f"# Анализ Kotlin кода в папке presentation/ui\n\n"
+        analysis += f"**Фокус анализа:** {focus_area}\n\n"
+        analysis += f"**Всего файлов:** {len(files_content)}\n\n"
+        
+        # Сортируем файлы по размеру (самые большие первыми)
+        sorted_files = sorted(files_content.items(), key=lambda x: len(x[1]), reverse=True)
+        
+        # Пробуем добавить файлы по одному, пока не превысим лимит
+        selected_files = []
+        current_analysis = analysis
+        
+        for file_name, content in sorted_files:
+            # Создаем анализ для этого файла
+            file_analysis = self._create_file_analysis(file_name, content)
+            test_analysis = current_analysis + file_analysis
+            
+            # Проверяем, поместится ли в модель
+            if self.can_fit_in_model(test_analysis):
+                current_analysis = test_analysis
+                selected_files.append(file_name)
+                logger.info(f"✅ Добавлен файл {file_name}")
+            else:
+                logger.info(f"⚠️ Файл {file_name} не помещается, останавливаемся")
+                break
+        
+        # Добавляем информацию о том, сколько файлов анализируем
+        if len(selected_files) < len(files_content):
+            analysis += f"**Анализируем {len(selected_files)} из {len(files_content)} файлов (по лимиту токенов):**\n"
+            analysis += f"**Выбранные файлы:** {', '.join(selected_files)}\n\n"
+        else:
+            analysis += f"**Анализируем все {len(files_content)} файлов:**\n\n"
+        
+        return current_analysis
+    
+    def _create_file_analysis(self, file_name: str, content: str) -> str:
+        """Создает анализ для одного файла"""
+        analysis = f"## 📄 {file_name}\n\n"
+        
+        # Базовый анализ файла
+        lines = content.split('\n')
+        total_lines = len(lines)
+        non_empty_lines = len([line for line in lines if line.strip()])
+        
+        # Находим классы и функции
+        classes = [line.strip() for line in lines if 'class ' in line and not line.strip().startswith('//')]
+        functions = [line.strip() for line in lines if ('fun ' in line or 'override fun ' in line) and not line.strip().startswith('//')]
+        
+        analysis += f"**Размер:** {total_lines} строк ({non_empty_lines} непустых)\n"
+        analysis += f"**Классы:** {len(classes)}\n"
+        analysis += f"**Функции:** {len(functions)}\n\n"
+        
+        # Показываем структуру класса
+        if classes:
+            analysis += "**Классы:**\n"
+            for class_line in classes:
+                analysis += f"- {class_line}\n"
+            analysis += "\n"
+        
+        # Показываем функции
+        if functions:
+            analysis += "**Функции:**\n"
+            for func_line in functions:
+                analysis += f"- {func_line}\n"
+            analysis += "\n"
+        
+        # Показываем ПОЛНЫЙ код файла
+        analysis += "**Полный код файла:**\n```kotlin\n"
+        for i, line in enumerate(lines):
+            analysis += f"{i+1:3d}| {line}\n"
+        analysis += "```\n\n"
+        
+        return analysis
+    
+    def _create_kotlin_analysis_prompt(self, code_analysis: str, focus_area: str) -> str:
+        """Создает промпт для анализа Kotlin кода"""
+        
+        prompt = f"""Ты эксперт по Android разработке на Kotlin. Проанализируй ПОЛНЫЙ код ниже и найди РЕАЛЬНЫЕ проблемы.
+
+**КРИТИЧЕСКИ ВАЖНО:** 
+- У тебя есть ПОЛНЫЙ код всех файлов
+- Анализируй ВСЕ файлы и ВСЕ функции
+- Ищи РЕАЛЬНЫЕ проблемы: неиспользуемые переменные, неправильные lifecycle методы, проблемы с архитектурой
+- Указывай ТОЧНЫЕ номера строк и файлы
+- Показывай КОНКРЕТНЫЕ исправления
+
+**Код для анализа:**
+{code_analysis}
+
+**Задача:** Найди ВСЕ проблемы в этом коде. Не останавливайся на одной проблеме!
+
+**Что искать:**
+1. **Неиспользуемые методы/переменные** - проверь, действительно ли они не используются
+2. **Неправильные lifecycle методы** - onCreate, onResume, onPause и т.д.
+3. **Проблемы с архитектурой** - ViewModel, LiveData, Repository
+4. **Проблемы с производительностью** - memory leaks, UI blocking
+5. **Проблемы с кодом** - naming, functions, error handling
+6. **Android best practices** - ViewBinding, Material Design, Navigation
+
+**Формат ответа:**
+1. **Проблемы по файлам** (минимум 5-10 проблем):
+   - `Файл: MainActivity.kt, Строка 25: private fun checkAuth()`
+   - `Проблема: Метод checkAuth() вызывается в onCreate() на строке 18, но помечен как неиспользуемый`
+   - `Исправление: Убрать private, сделать fun checkAuth()`
+
+2. **Конкретные примеры рефакторинга** с кодом до/после
+
+3. **Приоритетные исправления** - что исправить в первую очередь
+
+**НЕ ПИШИ:**
+- Общие советы
+- Абстрактные рекомендации
+- Проблемы, которых нет в коде
+
+**ПИШИ:**
+- ТОЛЬКО реальные проблемы из вашего кода
+- Точные номера строк
+- Конкретные исправления
+"""
+        
+        return prompt
+    
+    
+    def count_tokens(self, text: str, model: str = "gpt-3.5-turbo") -> int:
+        """Подсчитывает количество токенов в тексте"""
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+            return len(encoding.encode(text))
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка подсчета токенов: {e}, использую приблизительный подсчет")
+            # Fallback: приблизительный подсчет (1 токен ≈ 4 символа)
+            return len(text) // 4
+    
+    def can_fit_in_model(self, text: str, model: str = "gpt-3.5-turbo", completion_tokens: int = 2000) -> bool:
+        """Проверяет, поместится ли текст в модель с учетом места для ответа"""
+        current_tokens = self.count_tokens(text, model)
+        
+        # Фиксированный лимит: 10,000 токенов для входа
+        max_input_tokens = 10000
+        used_percentage = current_tokens / max_input_tokens * 100
+        
+        logger.info(f"Токены: {current_tokens}/{max_input_tokens} (использовано {used_percentage:.1f}%)")
+        return current_tokens < max_input_tokens
 
 
 if __name__ == "__main__":
@@ -430,6 +654,14 @@ if __name__ == "__main__":
     print("\nТестирую analyze_profile...")
     try:
         result = server.call_tool("analyze_profile", {"username": "ilyapopov24"})
+        print("Результат:", result)
+    except Exception as e:
+        print(f"Ошибка: {e}")
+    
+    # Тест анализа Kotlin кода
+    print("\nТестирую analyze_kotlin_code...")
+    try:
+        result = server.call_tool("analyze_kotlin_code", {"focus_area": "architecture"})
         print("Результат:", result)
     except Exception as e:
         print(f"Ошибка: {e}")

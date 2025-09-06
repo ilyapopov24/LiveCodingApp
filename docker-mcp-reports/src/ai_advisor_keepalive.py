@@ -38,7 +38,7 @@ def main():
                         "result": {
                             "protocolVersion": "2024-11-05",
                             "capabilities": {
-                                "tools": {}
+                                "tools": {tool["name"]: tool for tool in server.list_tools()}
                             },
                             "serverInfo": {
                                 "name": "github-ai-advisor",
