@@ -184,6 +184,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host  # Доступ к файлам хоста
     
     # Сетевые настройки
     networks:
@@ -616,6 +617,120 @@ services:
     
     # Команда запуска Ollama MCP сервера
     command: ["ollama-mcp"]
+
+  # Android Two-Agent MCP сервер для Cursor
+  android-two-agent:
+    build: .
+    container_name: mcp-android-two-agent
+    restart: unless-stopped
+    
+    # Environment variables
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Volumes для доступа к файлам хоста
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+    
+    # Команда запуска Android Two-Agent MCP сервера
+    command: ["android-two-agent"]
+
+  # Auth Server с RAG системой
+  auth-server:
+    build:
+      context: .
+      dockerfile: src/auth_Dockerfile
+    container_name: auth-server-rag
+    restart: unless-stopped
+    ports:
+      - "8001:8001"  # Порт для auth API
+    
+    # Загружаем переменные из файлов конфигурации
+    env_file:
+      - docker-keys.env
+      - docker-settings.env
+    
+    # Переменные окружения
+    environment:
+      # Auth настройки
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      # OpenAI API ключ
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-your-openai-key-here}
+      
+      # Логирование
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=${LOG_FILE:-auth_server.log}
+      
+      # Временная зона
+      - TZ=${TZ:-UTC}
+    
+    # Volumes для логов и данных
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Больше памяти для RAG системы
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # Больше времени на загрузку RAG модели
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   mcp-network:

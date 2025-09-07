@@ -21,13 +21,28 @@ case "$1" in
         echo "Запуск AI Advisor MCP сервера..."
         exec python src/ai_advisor_keepalive.py
         ;;
+    "android-two-agent")
+        echo "Запуск Android Two-Agent MCP сервера..."
+        exec python src/android_two_agent_keepalive.py
+        ;;
+    "mcp")
+        echo "Запуск GitHub Analytics MCP сервера..."
+        exec python src/mcp_keepalive.py
+        ;;
+    "spaceweb")
+        echo "Запуск Spaceweb MCP сервера..."
+        exec python src/spaceweb_keepalive.py
+        ;;
     *)
-        echo "Использование: $0 {python-runner|python-runner-http|tunnel-server|ollama-mcp|mcp-ai}"
+        echo "Использование: $0 {python-runner|python-runner-http|tunnel-server|ollama-mcp|mcp-ai|android-two-agent|mcp|spaceweb}"
         echo "  python-runner - Python Runner MCP сервер"
         echo "  python-runner-http - Python Runner HTTP сервер"
         echo "  tunnel-server - Python Runner Tunnel сервер"
         echo "  ollama-mcp - Ollama MCP сервер"
         echo "  mcp-ai - AI Advisor MCP сервер"
+        echo "  android-two-agent - Android Two-Agent MCP сервер"
+        echo "  mcp - GitHub Analytics MCP сервер"
+        echo "  spaceweb - Spaceweb MCP сервер"
         exit 1
         ;;
 esac
