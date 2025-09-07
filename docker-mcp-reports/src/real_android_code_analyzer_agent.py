@@ -195,6 +195,8 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         # Сканируем структуру
         project_structure = await self._scan_project_structure(project_path)
         file_count = sum(len(files) for files in project_structure.values() if isinstance(files, list))
+        logger.info(f"Сканирована структура проекта: {len(project_structure)} категорий, {file_count} файлов")
+        logger.info(f"Структура проекта: {project_structure}")
         
         # НЕЙРОННЫЙ АНАЛИЗ: анализируем ключевые файлы
         file_analysis = await self._analyze_files_with_neural(project_path, project_structure, max_files=10)
@@ -202,9 +204,16 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         
         overall_score = self._calculate_overall_score(file_analysis, architecture_analysis, {}, {})
         
+        # Собираем содержимое файлов для передачи следующему агенту
+        file_contents = {}
+        files_to_analyze = await self._collect_android_files_for_analysis(project_path)
+        for file_info in files_to_analyze:
+            file_contents[file_info['path']] = file_info['content']
+        
         return {
             'project_path': project_path,
             'project_structure': project_structure,
+            'file_contents': file_contents,  # Добавляем содержимое файлов
             'file_analysis': file_analysis,
             'architecture_analysis': architecture_analysis,
             'overall_score': overall_score,
@@ -367,7 +376,25 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         """Рекурсивно сканирует директорию"""
         for file_path in directory.rglob('*'):
             if file_path.is_file() and file_path.suffix in ['.kt', '.java', '.xml']:
-                relative_path = str(file_path.relative_to(directory.parents[1]))
+                # Вычисляем относительный путь от корня проекта
+                # Ищем корень проекта (где находится app/, domain/, presentation/, data/)
+                project_root = directory
+                while project_root.name != 'src' and project_root.parent != project_root:
+                    project_root = project_root.parent
+                project_root = project_root.parent  # Поднимаемся выше src
+                
+                try:
+                    relative_path = str(file_path.relative_to(project_root))
+                    # Исправляем путь: если файл в app/src/main/java/, то путь должен быть app/src/main/java/...
+                    if not relative_path.startswith('app/') and 'app/src/main' in str(file_path):
+                        # Если файл в app/src/main/, но relative_path не начинается с app/, исправляем
+                        parts = relative_path.split('/')
+                        if 'src' in parts and 'main' in parts:
+                            src_index = parts.index('src')
+                            relative_path = '/'.join(parts[src_index:])
+                except ValueError:
+                    # Если не можем вычислить относительный путь, используем имя файла
+                    relative_path = file_path.name
                 
                 if file_path.suffix in ['.kt', '.java']:
                     await self._categorize_kotlin_java_file(file_path, structure, relative_path)
@@ -426,6 +453,61 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         
         return analysis
     
+    async def _collect_android_files_for_analysis(self, project_path: str) -> List[Dict[str, Any]]:
+        """Собирает .kt файлы из presentation/ui/ для анализа с лимитом 15000 токенов"""
+        logger.info("Собираю .kt файлы из presentation/ui/ для анализа")
+        
+        project_dir = Path(project_path)
+        files_to_analyze = []
+        total_tokens = 0
+        max_tokens = 15000  # Лимит токенов
+        
+        # Ищем .kt файлы только в presentation/src/main/java/android/mentor/presentation/ui/
+        ui_dir = project_dir / 'presentation' / 'src' / 'main' / 'java' / 'android' / 'mentor' / 'presentation' / 'ui'
+        
+        if not ui_dir.exists():
+            logger.warning(f"Директория не найдена: {ui_dir}")
+            return files_to_analyze
+        
+        # Собираем все .kt файлы из ui директории
+        kotlin_files = []
+        for kt_file in ui_dir.rglob('*.kt'):
+            # Исключаем файлы из /build директорий
+            if '/build/' not in str(kt_file):
+                kotlin_files.append(kt_file)
+        
+        # Сортируем по размеру (сначала маленькие файлы)
+        kotlin_files.sort(key=lambda f: f.stat().st_size if f.exists() else 0)
+        
+        # Добавляем .kt файлы пока не достигнем лимита токенов
+        for kt_file in kotlin_files:
+            if total_tokens >= max_tokens:
+                break
+                
+            try:
+                content = kt_file.read_text(encoding='utf-8')
+                # Примерная оценка токенов (1 токен ≈ 4 символа)
+                file_tokens = len(content) // 4
+                
+                if total_tokens + file_tokens <= max_tokens:
+                    relative_path = str(kt_file.relative_to(project_dir))
+                    files_to_analyze.append({
+                        'path': relative_path,
+                        'content': content,
+                        'type': 'kotlin',
+                        'tokens': file_tokens
+                    })
+                    total_tokens += file_tokens
+                    logger.info(f"✅ Добавлен .kt файл: {relative_path} ({file_tokens} токенов)")
+                else:
+                    logger.info(f"⚠️ Пропущен .kt файл (превышение лимита): {kt_file.name}")
+                    break
+            except Exception as e:
+                logger.warning(f"Не удалось прочитать .kt файл {kt_file}: {e}")
+        
+        logger.info(f"📊 Итого собрано .kt файлов из presentation/ui/: {len(files_to_analyze)}, токенов: {total_tokens}")
+        return files_to_analyze
+    
     async def _analyze_architecture(self, project_structure: Dict) -> Dict[str, Any]:
         """Анализирует архитектуру проекта"""
         architecture = {
@@ -481,33 +563,8 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         """Анализирует файлы с помощью нейронки"""
         logger.info("Запускаю нейронный анализ файлов")
         
-        # Собираем файлы для анализа
-        files_to_analyze = []
-        for category, files in project_structure.items():
-            if isinstance(files, list) and files:
-                for file_path in files[:max_files//4]:  # Берем по несколько файлов из каждой категории
-                    # Исправляем путь - добавляем app/src/ перед main/java/
-                    if file_path.startswith('main/java/'):
-                        full_path = Path(project_path) / 'app' / 'src' / file_path
-                    elif file_path.startswith('main/'):
-                        full_path = Path(project_path) / 'app' / 'src' / file_path
-                    else:
-                        full_path = Path(project_path) / file_path
-                    
-                    logger.info(f"Пытаюсь прочитать файл: {full_path}")
-                    if full_path.exists():
-                        try:
-                            content = full_path.read_text(encoding='utf-8')
-                            files_to_analyze.append({
-                                'path': str(file_path),
-                                'content': content[:2000],  # Ограничиваем размер
-                                'category': category
-                            })
-                            logger.info(f"✅ Успешно прочитан файл: {file_path}")
-                        except Exception as e:
-                            logger.warning(f"Не удалось прочитать {file_path}: {e}")
-                    else:
-                        logger.warning(f"Файл не найден: {full_path}")
+        # Собираем файлы для анализа по новой логике
+        files_to_analyze = await self._collect_android_files_for_analysis(project_path)
         
         if not files_to_analyze:
             logger.warning("Нет файлов для анализа!")
@@ -517,16 +574,57 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
         try:
             logger.info(f"Отправляю запрос к GPT-4 для анализа {len(files_to_analyze)} файлов")
             
+            # Формируем детальное описание файлов для GPT (полное содержимое)
+            files_description = []
+            total_tokens = 0
+            for file_info in files_to_analyze:
+                files_description.append({
+                    'path': file_info['path'],
+                    'type': file_info['type'],
+                    'tokens': file_info['tokens'],
+                    'content': file_info['content']  # Полное содержимое без обрезания
+                })
+                total_tokens += file_info['tokens']
+            
             response = self.openai_client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo",
                 messages=[
                     {
                         "role": "system",
-                        "content": "Ты эксперт по Android разработке. Проанализируй код и найди проблемы со сложностью, архитектурой и качеством. Верни JSON с анализом."
+                        "content": """Ты эксперт по Android разработке. Проанализируй код и найди проблемы со сложностью, архитектурой и качеством.
+
+Верни JSON в формате:
+{
+    "complexity_issues": [
+        {
+            "file": "путь/к/файлу.kt",
+            "description": "описание проблемы",
+            "severity": "low/medium/high",
+            "line": 42
+        }
+    ],
+    "architecture_issues": [
+        {
+            "file": "путь/к/файлу.kt", 
+            "description": "описание архитектурной проблемы",
+            "severity": "medium/high",
+            "line": 15
+        }
+    ],
+    "code_smells": [
+        {
+            "file": "путь/к/файлу.kt",
+            "description": "описание code smell",
+            "severity": "low/medium",
+            "line": 8
+        }
+    ],
+    "overall_score": 0.85
+}"""
                     },
                     {
                         "role": "user",
-                        "content": f"Проанализируй эти Android файлы: {json.dumps(files_to_analyze, ensure_ascii=False)}"
+                        "content": f"Проанализируй эти Android файлы (всего {len(files_to_analyze)} файлов, {total_tokens} токенов). Файлы содержат полный код без обрезания:\n\n{json.dumps(files_description, ensure_ascii=False, indent=2)}"
                     }
                 ],
                 temperature=0.1
@@ -575,7 +673,7 @@ class RealAndroidCodeAnalyzerAgent(BaseAgent):
             logger.info(f"Отправляю запрос к GPT-4 для анализа архитектуры: {structure_summary}")
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo",
                 messages=[
                     {
                         "role": "system",

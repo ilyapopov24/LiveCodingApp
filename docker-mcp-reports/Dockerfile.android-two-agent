@@ -44,7 +44,11 @@ VOLUME ["/app/logs", "/app/data"]
 EXPOSE 8000
 
 # Команда запуска Android Two-Agent MCP сервера
-CMD ["python", "src/android_two_agent_keepalive.py"]
+ENTRYPOINT ["python", "src/android_two_agent_keepalive.py"]
+
+
+
+
 
 
 

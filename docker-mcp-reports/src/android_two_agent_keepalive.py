@@ -9,7 +9,7 @@ import json
 import logging
 import asyncio
 from typing import Dict, Any, List
-from real_android_two_agent_mcp_server import RealAndroidTwoAgentMCPServer
+from real_android_four_agent_mcp_server import RealAndroidFourAgentMCPServer
 
 # Настройка логирования
 logging.basicConfig(
@@ -22,7 +22,7 @@ class AndroidTwoAgentKeepaliveServer:
     """Keepalive сервер для Android Two-Agent MCP"""
     
     def __init__(self):
-        self.mcp_server = RealAndroidTwoAgentMCPServer()
+        self.mcp_server = RealAndroidFourAgentMCPServer()
         logger.info("Android Two-Agent MCP Keepalive Server инициализирован")
     
     async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:

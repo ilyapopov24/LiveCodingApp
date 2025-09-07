@@ -38,6 +38,11 @@ class RealAndroidBugDetectorAgent(BaseAgent):
     async def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Ищет баги с принятием решений"""
         logger.info(f"Агент {self.name} начинает поиск багов")
+        logger.info(f"Полученные данные от code_analyzer:")
+        logger.info(f"  - project_path: {data.get('project_path')}")
+        logger.info(f"  - project_structure: {len(data.get('project_structure', {}))} категорий")
+        logger.info(f"  - architecture_analysis: {data.get('architecture_analysis', {})}")
+        logger.info(f"  - file_analysis: {data.get('file_analysis', {})}")
         
         try:
             # ПРИНИМАЕМ РЕШЕНИЕ: какой режим поиска использовать?
@@ -513,36 +518,31 @@ class RealAndroidBugDetectorAgent(BaseAgent):
         """Выполняет поиск багов с помощью нейронки"""
         logger.info(f"Запускаю нейронный поиск багов в областях: {focus_areas}")
         
+        # Используем файлы и проблемы от Code Analyzer, НЕ читаем файлы заново
         project_path = data.get('project_path')
         project_structure = data.get('project_structure', {})
+        file_contents = data.get('file_contents', {})
+        architecture_issues = data.get('architecture_analysis', {}).get('issues', [])
+        complexity_issues = data.get('file_analysis', {}).get('complexity_issues', [])
         
-        # Собираем файлы для анализа
+        # Если file_contents пустой, попробуем получить из analysis_result
+        if not file_contents and 'analysis_result' in data:
+            file_contents = data['analysis_result'].get('file_contents', {})
+        
+        logger.info(f"Получены данные от Code Analyzer:")
+        logger.info(f"  - файлов с содержимым: {len(file_contents)}")
+        logger.info(f"  - архитектурных проблем: {len(architecture_issues)}")
+        logger.info(f"  - проблем сложности: {len(complexity_issues)}")
+        
+        # Отправляем файлы + проблемы нейронке для поиска багов
         files_to_analyze = []
-        for category, files in project_structure.items():
-            if isinstance(files, list) and files:
-                for file_path in files[:5]:  # Берем по 5 файлов из каждой категории
-                    # Исправляем путь - добавляем app/src/ перед main/java/
-                    if file_path.startswith('main/java/'):
-                        full_path = Path(project_path) / 'app' / 'src' / file_path
-                    elif file_path.startswith('main/'):
-                        full_path = Path(project_path) / 'app' / 'src' / file_path
-                    else:
-                        full_path = Path(project_path) / file_path
-                    
-                    logger.info(f"Пытаюсь прочитать файл для поиска багов: {full_path}")
-                    if full_path.exists():
-                        try:
-                            content = full_path.read_text(encoding='utf-8')
-                            files_to_analyze.append({
-                                'path': str(file_path),
-                                'content': content[:1500],  # Ограничиваем размер
-                                'category': category
-                            })
-                            logger.info(f"✅ Успешно прочитан файл для поиска багов: {file_path}")
-                        except Exception as e:
-                            logger.warning(f"Не удалось прочитать {file_path}: {e}")
-                    else:
-                        logger.warning(f"Файл не найден для поиска багов: {full_path}")
+        for file_path, content in file_contents.items():
+            files_to_analyze.append({
+                'path': file_path,
+                'content': content,
+                'type': 'kotlin' if file_path.endswith('.kt') else 'xml'
+            })
+            logger.info(f"✅ Добавлен файл для поиска багов: {file_path}")
         
         if not files_to_analyze:
             logger.warning("Нет файлов для поиска багов!")
@@ -553,11 +553,17 @@ class RealAndroidBugDetectorAgent(BaseAgent):
             logger.info(f"Отправляю запрос к GPT-4 для поиска багов в {len(files_to_analyze)} файлах")
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo",
                 messages=[
                     {
                         "role": "system",
-                        "content": f"""Ты эксперт по Android разработке и поиску багов. Проанализируй код и найди баги в областях: {', '.join(focus_areas)}.
+                        "content": f"""Ты эксперт по Android разработке и поиску багов. 
+
+НАЙДЕННЫЕ ПРОБЛЕМЫ ОТ CODE ANALYZER:
+Архитектурные проблемы: {architecture_issues}
+Проблемы сложности: {complexity_issues}
+
+ЗАДАЧА: На основе этих проблем найди конкретные баги в коде и классифицируй их по критичности.
 
 Верни JSON в следующем формате:
 {{
