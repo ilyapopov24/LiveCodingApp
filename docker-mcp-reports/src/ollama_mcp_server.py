@@ -6,6 +6,7 @@ MCP Server для Ollama - локальные LLM модели
 import json
 import subprocess
 import sys
+import requests
 from typing import Any, Dict, List, Optional
 import logging
 
@@ -17,6 +18,7 @@ class OllamaMCPServer:
     def __init__(self):
         self.server_name = "ollama-mcp-server"
         self.server_version = "1.0.0"
+        self.ollama_url = "http://ollama-server:11434"
         self.tools = [
             {
                 "name": "list-models",
@@ -118,56 +120,19 @@ class OllamaMCPServer:
     def list_models(self) -> Dict[str, Any]:
         """Показать список доступных моделей"""
         logger.info("Запрос списка моделей")
-        result = self._run_ollama_command(["ollama", "list"])
-        
-        if result["success"]:
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Доступные модели:\n```\n{result['output']}\n```"
-                    }
-                ]
-            }
-        else:
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Ошибка при получении списка моделей: {result['error']}"
-                    }
-                ]
-            }
-
-    def run_model(self, model: str, prompt: str, max_tokens: int = 1000) -> Dict[str, Any]:
-        """Запустить модель с запросом"""
-        logger.info(f"Запуск модели {model} с запросом: {prompt[:50]}...")
-        
-        # Формируем команду с ограничением токенов
-        command = [
-            "ollama", "run", model,
-            "--num-predict", str(max_tokens)
-        ]
-        
         try:
-            # Запускаем процесс с вводом
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
+            response.raise_for_status()
+            data = response.json()
             
-            # Отправляем промпт и закрываем stdin
-            stdout, stderr = process.communicate(input=prompt, timeout=300)
-            
-            if process.returncode == 0:
+            models = data.get("models", [])
+            if models:
+                model_list = "\n".join([f"- {model['name']} ({model.get('size', 0) / 1024 / 1024 / 1024:.1f} GB)" for model in models])
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"**Модель {model} отвечает:**\n\n{stdout.strip()}"
+                            "text": f"Доступные модели:\n```\n{model_list}\n```"
                         }
                     ]
                 }
@@ -176,12 +141,62 @@ class OllamaMCPServer:
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Ошибка при запуске модели: {stderr.strip()}"
+                            "text": "Нет доступных моделей. Используйте pull-model для загрузки модели."
                         }
                     ]
                 }
-        except subprocess.TimeoutExpired:
-            process.kill()
+        except Exception as e:
+            logger.error(f"Ошибка при получении списка моделей: {e}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Ошибка при получении списка моделей: {str(e)}"
+                    }
+                ]
+            }
+
+    def run_model(self, model: str, prompt: str, max_tokens: int = 1000) -> Dict[str, Any]:
+        """Запустить модель с запросом"""
+        logger.info(f"Запуск модели {model} с запросом: {prompt[:50]}...")
+        
+        try:
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": max_tokens
+                }
+            }
+            
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json=payload,
+                timeout=300
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if "response" in data:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"**Модель {model} отвечает:**\n\n{data['response'].strip()}"
+                        }
+                    ]
+                }
+            else:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Неожиданный ответ от модели: {data}"
+                        }
+                    ]
+                }
+        except requests.exceptions.Timeout:
             return {
                 "content": [
                     {
@@ -191,6 +206,7 @@ class OllamaMCPServer:
                 ]
             }
         except Exception as e:
+            logger.error(f"Ошибка при запуске модели: {e}")
             return {
                 "content": [
                     {
@@ -203,23 +219,30 @@ class OllamaMCPServer:
     def pull_model(self, model: str) -> Dict[str, Any]:
         """Загрузить новую модель"""
         logger.info(f"Загрузка модели {model}")
-        result = self._run_ollama_command(["ollama", "pull", model])
-        
-        if result["success"]:
+        try:
+            payload = {"name": model}
+            response = requests.post(
+                f"{self.ollama_url}/api/pull",
+                json=payload,
+                timeout=600  # 10 минут для загрузки
+            )
+            response.raise_for_status()
+            
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Модель {model} успешно загружена!\n\n```\n{result['output']}\n```"
+                        "text": f"Модель {model} успешно загружена!"
                     }
                 ]
             }
-        else:
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке модели {model}: {e}")
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Ошибка при загрузке модели {model}: {result['error']}"
+                        "text": f"Ошибка при загрузке модели {model}: {str(e)}"
                     }
                 ]
             }
@@ -227,26 +250,59 @@ class OllamaMCPServer:
     def model_info(self, model: str) -> Dict[str, Any]:
         """Получить информацию о модели"""
         logger.info(f"Запрос информации о модели {model}")
-        result = self._run_ollama_command(["ollama", "show", model])
-        
-        if result["success"]:
+        try:
+            # Получаем информацию о модели через API
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            models = data.get("models", [])
+            model_info = next((m for m in models if m['name'] == model), None)
+            
+            if model_info:
+                info_text = f"""Информация о модели {model}:
+- Размер: {model_info.get('size', 0) / 1024 / 1024 / 1024:.1f} GB
+- Изменена: {model_info.get('modified_at', 'Неизвестно')}
+- Digest: {model_info.get('digest', 'Неизвестно')}
+- Формат: {model_info.get('details', {}).get('format', 'Неизвестно')}
+- Семейство: {model_info.get('details', {}).get('family', 'Неизвестно')}
+- Размер параметров: {model_info.get('details', {}).get('parameter_size', 'Неизвестно')}"""
+                
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": info_text
+                        }
+                    ]
+                }
+            else:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Модель {model} не найдена. Используйте list-models для просмотра доступных моделей."
+                        }
+                    ]
+                }
+        except Exception as e:
+            logger.error(f"Ошибка при получении информации о модели {model}: {e}")
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Информация о модели {model}:\n\n```\n{result['output']}\n```"
+                        "text": f"Ошибка при получении информации о модели {model}: {str(e)}"
                     }
                 ]
             }
-        else:
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Ошибка при получении информации о модели {model}: {result['error']}"
-                    }
-                ]
-            }
+
+    def list_tools(self) -> List[Dict[str, Any]]:
+        """Получить список доступных инструментов"""
+        return self.tools
+
+    def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Вызвать инструмент"""
+        return self.handle_tool_call(tool_name, arguments)
 
     def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Обработать вызов инструмента"""
@@ -261,7 +317,7 @@ class OllamaMCPServer:
                 )
             elif tool_name == "pull-model":
                 return self.pull_model(model=arguments["model"])
-            elif tool_name == "model_info":
+            elif tool_name == "model-info":
                 return self.model_info(model=arguments["model"])
             else:
                 return {

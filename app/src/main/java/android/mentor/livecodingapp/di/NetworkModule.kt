@@ -31,7 +31,7 @@ object NetworkModule {
     fun provideChatRetrofit(): Retrofit {
         val okHttpClient = okhttp3.OkHttpClient.Builder()
             .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(400, java.util.concurrent.TimeUnit.SECONDS)  // 6+ минут для Android Two-Agent
             .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .build()
             
@@ -47,12 +47,12 @@ object NetworkModule {
     fun provideAuthRetrofit(): Retrofit {
         val okHttpClient = okhttp3.OkHttpClient.Builder()
             .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(400, java.util.concurrent.TimeUnit.SECONDS)  // 6+ минут для Android Two-Agent
             .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .build()
             
         return Retrofit.Builder()
-            .baseUrl("https://auth-server-ilya.loca.lt/")
+            .baseUrl("http://10.0.2.2:8001/")  // 10.0.2.2 - это localhost для Android эмулятора
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

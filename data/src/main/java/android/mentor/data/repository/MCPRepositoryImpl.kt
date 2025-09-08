@@ -4,6 +4,8 @@ import android.mentor.data.BuildConfig
 import android.mentor.data.api.GeminiApi
 import android.mentor.data.api.GitHubApi
 import android.mentor.data.api.CreateRepositoryRequest
+import android.mentor.data.service.MCPService
+import android.mentor.data.service.MCPResponse
 import android.mentor.domain.entities.MCPChatMessage
 import android.mentor.domain.entities.GitHubReport
 import android.mentor.domain.entities.GitHubProfileSummary
@@ -37,7 +39,8 @@ import java.util.concurrent.TimeUnit
 
 class MCPRepositoryImpl @Inject constructor(
     private val geminiApi: GeminiApi,
-    private val githubApi: GitHubApi
+    private val githubApi: GitHubApi,
+    private val mcpService: MCPService
 ) : MCPRepository {
 
     companion object {
@@ -58,76 +61,40 @@ class MCPRepositoryImpl @Inject constructor(
         return try {
             Log.d(TAG, "Processing user message: $message")
             
-            // Проверяем, является ли это командой для MCP сервера
-            if (message.startsWith("fix-android-bug")) {
-                Log.d(TAG, "Detected fix-android-bug command, sending to MCP server")
-                return executeMCPCommand(message)
-            }
+            // Используем новый MCPService для интеллектуальной отправки
+            val mcpResponse = mcpService.sendIntelligentMessage(message)
             
-            // 1. Отправляем сообщение пользователя в Gemini для анализа
-            val geminiResponse = geminiApi.processUserMessage(message)
-            
-            // 2. Проверяем, не является ли ответ ошибкой
-            if (geminiResponse.startsWith("Ошибка:") || geminiResponse.startsWith("Error:")) {
-                return MCPChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = "❌ $geminiResponse",
-                    isUser = false,
-                    timestamp = System.currentTimeMillis(),
-                    model = "gemini",
-                    isError = true,
-                    errorMessage = geminiResponse
-                )
-            }
-            
-            // 3. Парсим ответ Gemini для получения структурированного запроса
-            val structuredRequest = parseGeminiResponse(geminiResponse)
-            
-            // 4. Выполняем GitHub операцию напрямую
-            if (structuredRequest != null) {
-                val result = executeGitHubOperation(structuredRequest)
-                
-                // Создаем сообщение пользователя
-                val userMessage = MCPChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = message,
-                    isUser = true,
-                    timestamp = System.currentTimeMillis(),
-                    model = "user"
-                )
-                
-                // Создаем сообщение с результатом операции
-                val resultMessage = MCPChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = result,
-                    isUser = false,
-                    timestamp = System.currentTimeMillis(),
-                    model = "github-api"
-                )
-                
-                // Возвращаем сообщение с результатом операции
-                resultMessage
-            } else {
-                // Если Gemini не смог структурировать запрос
-                MCPChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    content = "❌ Не удалось понять ваш запрос. Попробуйте переформулировать.",
-                    isUser = false,
-                    timestamp = System.currentTimeMillis(),
-                    model = "gemini",
-                    isError = true,
-                    errorMessage = "Gemini не смог структурировать запрос"
-                )
+            when (mcpResponse) {
+                is MCPResponse.Success -> {
+                    MCPChatMessage(
+                        id = UUID.randomUUID().toString(),
+                        content = mcpResponse.content,
+                        isUser = false,
+                        timestamp = System.currentTimeMillis(),
+                        model = "mcp-server"
+                    )
+                }
+                is MCPResponse.Error -> {
+                    MCPChatMessage(
+                        id = UUID.randomUUID().toString(),
+                        content = mcpResponse.message,
+                        isUser = false,
+                        timestamp = System.currentTimeMillis(),
+                        model = "mcp-error",
+                        isError = true,
+                        errorMessage = mcpResponse.message
+                    )
+                }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to process message through Gemini: ${e.message}")
+            Log.e(TAG, "Error processing message", e)
             MCPChatMessage(
                 id = UUID.randomUUID().toString(),
-                content = "❌ Ошибка обработки запроса: ${e.message}",
+                content = "❌ Ошибка: ${e.message}",
                 isUser = false,
                 timestamp = System.currentTimeMillis(),
-                model = "system",
+                model = "error",
                 isError = true,
                 errorMessage = e.message
             )
@@ -1202,7 +1169,7 @@ class MCPRepositoryImpl @Inject constructor(
             // Отправляем HTTP запрос в HTTP Bridge сервер
             val httpClient = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(400, TimeUnit.SECONDS)  // 6+ минут для Android Two-Agent
                 .build()
             
             val requestBody = JSONObject().apply {
@@ -1275,7 +1242,7 @@ class MCPRepositoryImpl @Inject constructor(
             // Отправляем HTTP запрос в HTTP Bridge сервер
             val httpClient = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(400, TimeUnit.SECONDS)  // 6+ минут для Android Two-Agent
                 .build()
             
             val requestBody = JSONObject().apply {

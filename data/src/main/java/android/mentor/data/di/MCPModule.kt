@@ -4,6 +4,7 @@ import android.mentor.data.api.GitHubApi
 import android.mentor.data.api.GeminiApi
 import android.mentor.data.repository.MCPRepositoryImpl
 import android.mentor.data.repository.GitHubActionsRepositoryImpl
+import android.mentor.data.service.MCPService
 import android.mentor.domain.repository.MCPRepository
 import android.mentor.domain.repository.GitHubActionsRepository
 import dagger.Binds
@@ -32,12 +33,18 @@ abstract class MCPModule {
             return retrofit.create(GitHubApi::class.java)
         }
         
+        
         @Provides
         @Singleton
         fun provideGeminiApi(): GeminiApi {
             return GeminiApi()
         }
         
+        @Provides
+        @Singleton
+        fun provideMCPService(): MCPService {
+            return MCPService()
+        }
 
     }
 }

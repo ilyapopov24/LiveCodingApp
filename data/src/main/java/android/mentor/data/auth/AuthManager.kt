@@ -70,10 +70,17 @@ class AuthManager @Inject constructor(
             )
             _currentUser.value = user
             
-            // Сохраняем профиль пользователя для RAG
-            response.userProfile?.let { profile ->
-                _userProfile.value = profile
-            }
+            // Создаем профиль пользователя для RAG
+            val profile = UserProfile(
+                id = loginRequest.username,
+                name = loginRequest.username,
+                email = null,
+                avatarUrl = null,
+                role = response.userRole ?: "user",
+                createdAt = null,
+                updatedAt = null
+            )
+            _userProfile.value = profile
             
             Result.success(response)
         } catch (e: Exception) {

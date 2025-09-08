@@ -15,7 +15,7 @@ case "$1" in
         ;;
     "ollama-mcp")
         echo "Запуск Ollama MCP сервера..."
-        exec python src/ollama_keepalive.py
+        exec python src/ollama_stdio_server.py
         ;;
     "mcp-ai")
         echo "Запуск AI Advisor MCP сервера..."
@@ -33,8 +33,16 @@ case "$1" in
         echo "Запуск Spaceweb MCP сервера..."
         exec python src/spaceweb_keepalive.py
         ;;
+    "sequential-thinking")
+        echo "Запуск Sequential Thinking MCP сервера..."
+        exec python src/sequential_thinking_stdio_server.py
+        ;;
+    "report")
+        echo "Запуск MCP Report Generator..."
+        exec python src/main.py
+        ;;
     *)
-        echo "Использование: $0 {python-runner|python-runner-http|tunnel-server|ollama-mcp|mcp-ai|android-two-agent|mcp|spaceweb}"
+        echo "Использование: $0 {python-runner|python-runner-http|tunnel-server|ollama-mcp|mcp-ai|android-two-agent|mcp|spaceweb|sequential-thinking|report}"
         echo "  python-runner - Python Runner MCP сервер"
         echo "  python-runner-http - Python Runner HTTP сервер"
         echo "  tunnel-server - Python Runner Tunnel сервер"
@@ -43,6 +51,8 @@ case "$1" in
         echo "  android-two-agent - Android Two-Agent MCP сервер"
         echo "  mcp - GitHub Analytics MCP сервер"
         echo "  spaceweb - Spaceweb MCP сервер"
+        echo "  sequential-thinking - Sequential Thinking MCP сервер"
+        echo "  report - MCP Report Generator"
         exit 1
         ;;
 esac

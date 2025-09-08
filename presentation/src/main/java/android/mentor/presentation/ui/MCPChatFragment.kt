@@ -75,6 +75,14 @@ class MCPChatFragment : Fragment() {
                 updateConnectionStatus(isConnected)
             }
         }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.selectedMCPServer.collect { selectedServer ->
+                selectedServer?.let {
+                    updateMCPServerInfo(it)
+                }
+            }
+        }
     }
 
     private fun setupClickListeners() {
@@ -127,6 +135,20 @@ class MCPChatFragment : Fragment() {
 
         binding.buttonConnect.text = if (isConnected) "Отключиться" else "Подключиться"
         binding.buttonSend.isEnabled = isConnected && binding.editTextMessage.text.isNotEmpty()
+    }
+
+    private fun updateMCPServerInfo(serverType: android.mentor.data.service.MCPServerType) {
+        val serverInfo = when (serverType) {
+            android.mentor.data.service.MCPServerType.GITHUB_ANALYTICS -> "📊 GitHub Analytics"
+            android.mentor.data.service.MCPServerType.AI_ADVISOR -> "🎯 AI Advisor"
+            android.mentor.data.service.MCPServerType.PYTHON_RUNNER -> "🐍 Python Runner"
+            android.mentor.data.service.MCPServerType.ANDROID_TWO_AGENT -> "🤖 Android Two-Agent"
+            android.mentor.data.service.MCPServerType.SEQUENTIAL_THINKING -> "🧠 Sequential Thinking"
+            android.mentor.data.service.MCPServerType.SPACEWEB -> "☁️ Spaceweb"
+        }
+        
+        // Обновляем заголовок с информацией о выбранном сервере
+        binding.textViewTitle.text = "MCP Chat - $serverInfo"
     }
 
     override fun onDestroyView() {

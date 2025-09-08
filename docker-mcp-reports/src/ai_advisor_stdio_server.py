@@ -1,214 +1,189 @@
 #!/usr/bin/env python3
 """
-STDIO интерфейс для GitHub AI Advisor MCP сервера
+AI Advisor MCP Server для работы через STDIO
+Возвращает только JSON ответы без тестовой информации
 """
 
 import json
 import logging
+import os
 import sys
 from typing import Dict, Any
 
-from ai_advisor_mcp_server import GitHubAIAdvisorMCPServer
+import openai
+from github_client import GitHubClient
+from report_generator import ReportGenerator
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Настройка логирования только для ошибок
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 class AIAdvisorSTDIOServer:
     def __init__(self):
-        self.server = GitHubAIAdvisorMCPServer()
-        self.request_id = 0
+        self.openai_client = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        self.github_client = GitHubClient(token=os.environ.get('GITHUB_TOKEN'))
+        self.report_generator = ReportGenerator(github_client=self.github_client)
         
-        # Логируем запуск
-        logger.info("=== GitHub AI Advisor MCP Server запущен ===")
-        logger.info(f"Python версия: {sys.version}")
-        logger.info(f"Текущая директория: {sys.path[0]}")
-        logger.info(f"Python path: {sys.path}")
-        logger.info(f"Доступные тулсы: {[tool['name'] for tool in self.server.list_tools()]}")
-    
-    def run(self):
-        """Основной цикл обработки STDIO"""
-        logger.info("Начинаю обработку STDIO...")
-        
-        try:
-            while True:
-                # Читаем строку из stdin
-                line = sys.stdin.readline()
-                if not line:
-                    logger.info("stdin закрыт, завершаю работу")
-                    break
-                
-                line = line.strip()
-                if not line:
-                    continue
-                
-                logger.info(f"Получен запрос: {line}")
-                
-                try:
-                    # Парсим JSON-RPC запрос
-                    request = json.loads(line)
-                    response = self.handle_request(request)
-                    
-                    # Отправляем ответ
-                    if response:
-                        response_json = json.dumps(response)
-                        sys.stdout.write(response_json + '\n')
-                        sys.stdout.flush()
-                        logger.info(f"Отправлен ответ: {response_json}")
-                        
-                except json.JSONDecodeError as e:
-                    logger.error(f"Ошибка парсинга JSON: {e}")
-                    error_response = self.create_error_response(
-                        None, -32700, "Parse error", str(e)
-                    )
-                    sys.stdout.write(json.dumps(error_response) + '\n')
-                    sys.stdout.flush()
-                    
-                except Exception as e:
-                    logger.error(f"Неожиданная ошибка: {e}")
-                    error_response = self.create_error_response(
-                        None, -32603, "Internal error", str(e)
-                    )
-                    sys.stdout.write(json.dumps(error_response) + '\n')
-                    sys.stdout.flush()
-                    
-        except KeyboardInterrupt:
-            logger.info("Получен сигнал прерывания, завершаю работу")
-        except Exception as e:
-            logger.error(f"Критическая ошибка в основном цикле: {e}")
-        finally:
-            logger.info("GitHub AI Advisor MCP Server завершен")
+        # Регистрируем тулсы
+        self.tools = {
+            "analyze_profile": {
+                "name": "analyze_profile",
+                "description": "Полный анализ GitHub профиля с AI рекомендациями",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "username": {
+                            "type": "string",
+                            "description": "GitHub username для анализа"
+                        }
+                    },
+                    "required": ["username"]
+                }
+            }
+        }
     
     def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """Обрабатывает JSON-RPC запрос"""
-        method = request.get('method')
-        request_id = request.get('id')
-        params = request.get('params', {})
-        
-        logger.info(f"Обрабатываю метод: {method}, ID: {request_id}")
-        
+        """Обрабатывает MCP запрос"""
         try:
-            if method == 'initialize':
-                return self.handle_initialize(request_id, params)
-            elif method == 'tools/list':
-                return self.handle_tools_list(request_id)
-            elif method == 'tools/call':
-                return self.handle_tools_call(request_id, params)
-            elif method == 'notifications/initialized':
-                return None  # Уведомления не требуют ответа
-            elif method == 'notifications/cancel':
-                return None  # Уведомления не требуют ответа
-            elif method == 'ping':
-                return self.create_success_response(request_id, "pong")
-            else:
-                logger.warning(f"Неизвестный метод: {method}")
-                return self.create_error_response(
-                    request_id, -32601, "Method not found", f"Unknown method: {method}"
-                )
-                
-        except Exception as e:
-            logger.error(f"Ошибка при обработке запроса {method}: {e}")
-            return self.create_error_response(
-                request_id, -32603, "Internal error", str(e)
-            )
-    
-    def handle_initialize(self, request_id: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Обрабатывает инициализацию"""
-        logger.info("Инициализация MCP сервера")
-        
-        response = {
+            method = request.get("method")
+            
+            if method == "initialize":
+                return {
             "jsonrpc": "2.0",
-            "id": request_id,
+                    "id": request.get("id"),
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {
                     "tools": {}
                 },
                 "serverInfo": {
-                    "name": "GitHub AI Advisor",
+                            "name": "ai-advisor",
                     "version": "1.0.0"
                 }
             }
         }
         
-        logger.info("Инициализация завершена успешно")
-        return response
-    
-    def handle_tools_list(self, request_id: Any) -> Dict[str, Any]:
-        """Возвращает список доступных тулсов"""
-        logger.info("Запрос списка тулсов")
-        
-        tools = self.server.list_tools()
-        logger.info(f"Найдено {len(tools)} тулсов")
-        
-        response = {
+            elif method == "tools/list":
+                return {
             "jsonrpc": "2.0",
-            "id": request_id,
+                    "id": request.get("id"),
             "result": {
-                "tools": tools
-            }
-        }
-        
-        return response
-    
-    def handle_tools_call(self, request_id: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Вызывает указанный тулс"""
-        tool_name = params.get('name')
-        arguments = params.get('arguments', {})
-        
-        logger.info(f"Вызов тулса: {tool_name} с аргументами: {arguments}")
-        
-        try:
-            result = self.server.call_tool(tool_name, arguments)
-            logger.info(f"Тулс {tool_name} выполнен успешно")
+                        "tools": list(self.tools.values())
+                    }
+                }
             
-            response = {
+            elif method == "tools/call":
+                params = request.get("params", {})
+                tool_name = params.get("name")
+                arguments = params.get("arguments", {})
+                
+                if tool_name == "analyze_profile":
+                    username = arguments.get("username", "octocat")
+                    result = self.analyze_profile(username)
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": result
+                                }
+                            ]
+                        }
+                    }
+                else:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "error": {
+                            "code": -32601,
+                            "message": f"Unknown tool: {tool_name}"
+                        }
+                    }
+            
+            else:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request.get("id"),
+                    "error": {
+                        "code": -32601,
+                        "message": f"Unknown method: {method}"
+                    }
+                }
+                
+        except Exception as e:
+            return {
                 "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {
-                    "content": result.get('content', [])
+                "id": request.get("id"),
+                "error": {
+                    "code": -32603,
+                    "message": f"Internal error: {str(e)}"
                 }
             }
+
+    def analyze_profile(self, username: str) -> str:
+        """Анализирует GitHub профиль"""
+        try:
+            # Получаем профиль пользователя
+            profile = self.github_client.get_user_profile_by_username(username)
+            if not profile:
+                return f"❌ Пользователь {username} не найден"
             
-            return response
+            # Получаем репозитории
+            repos = self.github_client.get_user_repositories(username, per_page=100)
+            
+            # Генерируем отчет
+            report = self.report_generator.generate_profile_analysis(profile, repos)
+            
+            return report
             
         except Exception as e:
-            logger.error(f"Ошибка при выполнении тулса {tool_name}: {e}")
-            return self.create_error_response(
-                request_id, -32603, "Tool execution error", str(e)
-            )
+            return f"❌ Ошибка анализа профиля: {str(e)}"
+
+def main():
+    """Главная функция для работы через STDIO"""
+    server = AIAdvisorSTDIOServer()
     
-    def create_success_response(self, request_id: Any, result: Any) -> Dict[str, Any]:
-        """Создает успешный ответ"""
-        return {
+    try:
+        # Читаем JSON-RPC запрос из stdin
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+                
+            try:
+                request = json.loads(line)
+                response = server.handle_request(request)
+                print(json.dumps(response, ensure_ascii=False))
+                sys.stdout.flush()
+            except json.JSONDecodeError:
+                continue
+            except Exception as e:
+                error_response = {
             "jsonrpc": "2.0",
-            "id": request_id,
-            "result": result
-        }
-    
-    def create_error_response(self, request_id: Any, code: int, message: str, data: str = None) -> Dict[str, Any]:
-        """Создает ответ с ошибкой"""
+                    "id": None,
+                    "error": {
+                        "code": -32700,
+                        "message": f"Parse error: {str(e)}"
+                    }
+                }
+                print(json.dumps(error_response, ensure_ascii=False))
+                sys.stdout.flush()
+                
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
         error_response = {
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": None,
             "error": {
-                "code": code,
-                "message": message
+                "code": -32603,
+                "message": f"Internal error: {str(e)}"
             }
         }
-        
-        if data:
-            error_response["error"]["data"] = data
-            
-        return error_response
-
+        print(json.dumps(error_response, ensure_ascii=False))
+        sys.stdout.flush()
 
 if __name__ == "__main__":
-    server = AIAdvisorSTDIOServer()
-    server.run()
-
-
-
+    main()

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.mentor.domain.entities.MCPChatMessage
 import android.mentor.domain.repository.MCPRepository
+import android.mentor.data.service.MCPService
+import android.mentor.data.service.MCPServerType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MCPChatViewModel @Inject constructor(
-    private val mcpRepository: MCPRepository
+    private val mcpRepository: MCPRepository,
+    private val mcpService: MCPService
 ) : ViewModel() {
 
     private val _chatMessages = MutableStateFlow<List<MCPChatMessage>>(emptyList())
@@ -24,6 +27,9 @@ class MCPChatViewModel @Inject constructor(
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    
+    private val _selectedMCPServer = MutableStateFlow<MCPServerType?>(null)
+    val selectedMCPServer: StateFlow<MCPServerType?> = _selectedMCPServer.asStateFlow()
 
     init {
         // Инициализируем Gemini API
@@ -80,30 +86,19 @@ class MCPChatViewModel @Inject constructor(
                 )
                 _chatMessages.value = _chatMessages.value + userMessage
                 
-                // Отправляем сообщение через MCP репозиторий для получения результата
+                // Определяем подходящий MCP сервер
+                val selectedServer = mcpService.selectMCPServer(message)
+                _selectedMCPServer.value = selectedServer
+                
+                // Показываем информацию о выбранном сервере
+                val serverInfo = getServerInfo(selectedServer)
+                addSystemMessage("🤖 Выбран MCP сервер: $serverInfo")
+                
+                // Отправляем сообщение через MCP репозиторий
                 val resultMessage = mcpRepository.sendMessage(message)
                 
-                // Проверяем, является ли это MCP командой
-                if (message.startsWith("fix-android-bug")) {
-                    // Для MCP команд показываем специальный индикатор
-                    addSystemMessage("🔧 Выполняю MCP команду...")
-                } else {
-                    // Для обычных сообщений показываем Gemini индикатор
-                    addSystemMessage("⏳ Обрабатываю запрос через Gemini...")
-                }
-                
-                if (!resultMessage.isError) {
-                    if (message.startsWith("fix-android-bug")) {
-                        addSystemMessage("✅ MCP команда выполнена")
-                    } else {
-                        addSystemMessage("✅ Запрос обработан, выполняю GitHub операцию...")
-                    }
-                    // Добавляем результат операции
-                    _chatMessages.value = _chatMessages.value + resultMessage
-                } else {
-                    // Если произошла ошибка, показываем её
-                    _chatMessages.value = _chatMessages.value + resultMessage
-                }
+                // Добавляем результат операции
+                _chatMessages.value = _chatMessages.value + resultMessage
                 
             } catch (e: Exception) {
                 addSystemMessage("❌ Ошибка: ${e.message}")
@@ -126,6 +121,17 @@ class MCPChatViewModel @Inject constructor(
     }
     
     fun isConnected(): Boolean = _isConnected.value
+
+    private fun getServerInfo(serverType: MCPServerType): String {
+        return when (serverType) {
+            MCPServerType.GITHUB_ANALYTICS -> "📊 GitHub Analytics (анализ профилей и репозиториев)"
+            MCPServerType.AI_ADVISOR -> "🎯 AI Advisor (рекомендации и цели)"
+            MCPServerType.PYTHON_RUNNER -> "🐍 Python Runner (выполнение кода)"
+            MCPServerType.ANDROID_TWO_AGENT -> "🤖 Android Two-Agent (анализ Android проектов)"
+            MCPServerType.SEQUENTIAL_THINKING -> "🧠 Sequential Thinking (сложные рассуждения)"
+            MCPServerType.SPACEWEB -> "☁️ Spaceweb (управление VPS)"
+        }
+    }
 
     private fun addSystemMessage(content: String) {
         val systemMessage = MCPChatMessage(

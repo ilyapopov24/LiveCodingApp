@@ -354,7 +354,6 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock  # Доступ к Docker daemon
       - /Users/ilyapopov/Downloads/LiveCodingApp:/host  # Доступ к файлам хоста
     
     # Сетевые настройки
@@ -394,7 +393,7 @@ services:
     container_name: python-runner-http
     restart: unless-stopped
     ports:
-      - "8001:8001"  # Открываем порт для внешнего доступа
+      - "8002:8001"  # Открываем порт для внешнего доступа
     
     # Загружаем переменные из файлов конфигурации
     env_file:
@@ -615,8 +614,58 @@ services:
         max-size: "10m"
         max-file: "3"
     
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+    
     # Команда запуска Ollama MCP сервера
     command: ["ollama-mcp"]
+
+  # Sequential Thinking MCP сервер для Cursor
+  sequential-thinking:
+    build: .
+    container_name: mcp-sequential-thinking
+    restart: unless-stopped
+    
+    # Volumes для доступа к файлам хоста
+    volumes:
+      - /Users/ilyapopov/Downloads/LiveCodingApp:/host
+    
+    # Сетевые настройки
+    networks:
+      - mcp-network
+    
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # STDIO transport (не нужен порт)
+    stdin_open: true
+    tty: true
+    
+    # Команда запуска Sequential Thinking MCP сервера
+    command: ["sequential-thinking"]
 
   # Android Two-Agent MCP сервер для Cursor
   android-two-agent:
